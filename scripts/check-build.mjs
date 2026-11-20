@@ -14,4 +14,10 @@ for (const entry of [pkg.main, manifest.main, pkg.exports['.'], pkg.exports['./c
 }
 assert.equal(pkg.main, manifest.main)
 assert.equal(pkg.exports['./client'], manifest.client.main)
-console.log('SideNotes bundles and published entry points are consistent')
+// The DSH Web/Desktop Client executes as a classic script with a custom loader.
+const client = readFileSync(join(root, pkg.exports['./client']), 'utf8')
+assert.match(client, /^window\.__ModuleLoader__\.load\(\{\s*id:\s*['"]dsh-sidenotes['"]/)
+assert.match(client, /factory:\s*\(require\)\s*=>\s*\{/)
+assert.match(client, /return module\.exports;\s*}\s*\}\);/)
+assert.doesNotMatch(client, /(^|\n)\s*(?:import\s|export\s)/u, 'client output must not be a bare ESM file')
+console.log('Side Chat Host/Client entries and classic-script loader format are valid')

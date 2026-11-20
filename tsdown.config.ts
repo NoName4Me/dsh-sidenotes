@@ -13,8 +13,18 @@ export default defineConfig([
   {
     entry: { client: 'src/client/index.ts' },
     outDir: 'lib',
-    format: 'esm',
+    // DSH's client module loader executes classic scripts, not ES modules.
+    // Emit CJS in the official window.__ModuleLoader__.load closure.
+    format: 'cjs',
     platform: 'browser',
+    external: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client'],
+    outputOptions: {
+      entryFileNames: 'client.js',
+      codeSplitting: false,
+      banner: "window.__ModuleLoader__.load({ id: 'dsh-sidenotes', factory: (require) => {",
+      intro: 'var module = { exports: {} }; var exports = module.exports;',
+      footer: 'return module.exports; } });',
+    },
     clean: false,
     tsconfig: './tsconfig.client.json',
     dts: false,

@@ -289,3 +289,14 @@ interface SideSessionAdapter {
 - Native side note reference: https://github.com/g-yixuan/dsh-sidenote
 
 参考项目用于理解接口与交互；不得直接引入未复核的内部 API，也不得复制不兼容许可证的代码。
+
+## 9. 导航位置（2026-11-20 修订）
+
+产品名称：**Side Chat · 旁敲侧击**。对话消息下方和文本选区浮出的按钮统一称为 **「侧聊」**。
+
+DSH 已有 Turn Navigator（会话轮次悬浮导航）和官方右侧 Sidebar（支持原生标签页、分栏、浮窗、布局持久化）。Side Chat **不再悬浮第二条独立右缘目录**：
+
+- 点消息下方「侧聊」，或选中一段模型回答后点附近的「侧聊」，打开官方右侧 Sidebar 的「旁敲侧击」标签页。
+- 标签页内展示侧聊目录和当前侧聊；允许回到目录、归档/升格、搜索和带回草稿，保留官方 Sidebar 的拖拽、收起与布局行为。
+- 原生会话导航及 Quote 按钮保持原样，不覆盖它们的 Slot；选区入口通过不阻断原生文本交互的轻量浮动按钮提供。
+- 插件内部 ID 和 npm 包名 `dsh-sidenotes` 暂保留，避免升级时丢失原有元数据和插件身份；产品展示名称采用 Side Chat。

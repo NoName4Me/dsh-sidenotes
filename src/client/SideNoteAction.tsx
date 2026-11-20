@@ -4,17 +4,19 @@ import type { SideNoteIntentStore } from './intent.ts'
 
 interface SideNoteActionProps extends PropsRuntime<'conversation.chat.assistant-actions'> {
   readonly intent: SideNoteIntentStore
+  readonly openSideChat: () => void
 }
 
-export function SideNoteAction({ sessionId, messageId, intent }: SideNoteActionProps) {
+export function SideNoteAction({ sessionId, messageId, intent, openSideChat }: SideNoteActionProps) {
   return (
     <button
       type="button"
       data-sidenotes-anchor={String(messageId)}
-      title="在独立旁注中追问，不打断当前对话"
+      title="侧聊：就此消息开启独立对话"
       onClick={() => {
         const selection = window.getSelection()?.toString().trim() ?? ''
         intent.open(String(sessionId), String(messageId), selection)
+        openSideChat()
       }}
       style={{
         fontSize: 12, border: 'none', background: 'transparent',

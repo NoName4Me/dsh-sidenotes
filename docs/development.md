@@ -95,3 +95,7 @@ Host entry 为 `./lib/index.mjs`，Client entry 为 `./lib/client.js`（tsdown r
 ## 2026-11-20 构建验证更新
 
 已通过 GitHub Actions 进行 Node 24 + DSH 0.2.2-rc.5 Host/Client TypeScript 类型检查、tsdown 构建和 Node tests。`pnpm-lock.yaml` 已由 CI 生成并提交，构建统一执行 `pnpm install --frozen-lockfile`。注意：通过编译和模拟端口测试不代表已经在 DSH Web Profile 真正加载成功。
+
+## DSH Client 打包约束
+
+**不要将 `lib/client.js` 打包成 ESM。** DSH Web/Desktop 通过普通 script 加载，必须以 `window.__ModuleLoader__.load({ id: 'dsh-sidenotes', factory: (require) => { ... return module.exports } })` 注册工厂。使用 tsdown CJS + banner/intro/footer，且从浏览器共享模块表中 require React。构建脚本必须检查此格式，不能只检查文件存在。

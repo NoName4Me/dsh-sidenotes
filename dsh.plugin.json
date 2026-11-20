@@ -1,8 +1,8 @@
 {
   "id": "dsh-external/dsh-sidenotes",
-  "version": "0.1.0-dev.0",
+  "version": "0.1.0-dev.2",
   "main": "./lib/index.mjs",
-  "description": "Anchored, context-aware side conversations with a right-edge index and isolated Agent sessions.",
+  "description": "Side Chat · 旁敲侧击 — anchored side conversations in DeepSeek Harness.",
   "engines": {
     "dsh": ">=0.2.2-rc.5 <0.2.3-0"
   },

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
-import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { SideNote } from '../domain/types.ts'
 import type { SideNoteHistory } from '../host/rpc.ts'
@@ -11,7 +10,7 @@ interface CurrentSessionSource {
   getSnapshot(): { key?: string }
   subscribe(listener: () => void): () => void
 }
-interface SideNotesOverlayProps extends PropsRuntime<'shell.overlay'> {
+interface SideNotesOverlayProps {
   readonly api: SideNotesApi
   readonly bringBack: (parentSessionId: string, title: string, text: string) => boolean
   readonly intent: SideNoteIntentStore
@@ -172,11 +171,11 @@ export function SideNotesOverlay({ api, bringBack, intent, currentSession }: Sid
 
   if (!sessionId) return null
   return (
-    <div style={{ position: 'fixed', top: 78, right: 12, bottom: 14, zIndex: 35, display: 'flex', gap: 8, pointerEvents: 'none', alignItems: 'flex-start' }}>
-      <aside aria-label="旁注目录" style={{ ...surface, pointerEvents: 'auto', width: 100, maxHeight: '70vh', overflowY: 'auto', padding: 7, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 5 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, padding: '4px 3px' }}>旁注 · {visible.length}</div>
+    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <aside aria-label="侧聊目录" style={{ ...surface, display: expanded ? 'none' : 'flex', flex: 1, width: '100%', minHeight: 0, overflowY: 'auto', boxSizing: 'border-box', padding: 12, border: 'none', boxShadow: 'none', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, padding: '4px 3px' }}>侧聊 · {visible.length}</div>
         <button style={button} onClick={() => { setExpanded(v => !v); setActiveId(undefined); setError(undefined) }} title="浏览所有旁注">＋ / 目录</button>
-        {visible.slice(-15).map(n => (
+        {visible.map(n => (
           <button key={n.id} type="button" title={n.title} style={{ ...button, borderColor: activeId === n.id ? '#64748b' : undefined, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }} onClick={() => {
             setActiveId(n.id)
             setExpanded(true)
@@ -189,9 +188,9 @@ export function SideNotesOverlay({ api, bringBack, intent, currentSession }: Sid
       </aside>
 
       {expanded && (
-        <section aria-label="旁注对话" style={{ ...surface, width: 'min(390px, calc(100vw - 145px))', height: 'min(78vh, 780px)', pointerEvents: 'auto', borderRadius: 14, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <section aria-label="侧边对话" style={{ ...surface, width: '100%', height: '100%', minHeight: 0, flex: 1, border: 'none', boxShadow: 'none', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <header style={{ display: 'flex', alignItems: 'center', padding: 12, borderBottom: '1px solid var(--dsh-color-border, #cbd5e1)', gap: 8 }}>
-            <strong style={{ fontSize: 14, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{active?.title ?? '旁注对话'}</strong>
+            <strong style={{ fontSize: 14, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{active?.title ?? '侧边对话'}</strong>
             <button type="button" style={button} onClick={() => setExpanded(false)} aria-label="收起旁注">收起</button>
           </header>
 
@@ -205,19 +204,19 @@ export function SideNotesOverlay({ api, bringBack, intent, currentSession }: Sid
                   <select value={mode} onChange={e => setMode(e.target.value as 'light' | 'fork')} style={{ ...button, background: 'inherit' }}>
                     <option value="light">轻量旁注</option><option value="fork">继承完整上下文（Fork）</option>
                   </select>
-                  <textarea aria-label="新旁注问题" rows={3} value={draft} disabled={busy}
-                    placeholder="输入问题，发送后自动创建独立旁注……"
+                  <textarea aria-label="新侧聊问题" rows={3} value={draft} disabled={busy}
+                    placeholder="输入问题，发送后自动创建独立侧聊……"
                     onChange={e => setDraft(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); create() } }}
                     style={{ fontFamily: 'inherit', resize: 'vertical', padding: 9, border: '1px solid #94a3b8', borderRadius: 8, color: 'inherit', background: 'inherit', fontSize: 13 }} />
-                  <button style={button} disabled={busy || !draft.trim()} onClick={create}>提问并创建旁注 Ctrl+Enter</button>
+                  <button style={button} disabled={busy || !draft.trim()} onClick={create}>提问并创建侧聊 Ctrl+Enter</button>
                 </div>
-              ) : <p style={muted}>点击主对话消息下的「旁注」，从该消息发起新问题。</p>}
+              ) : <p style={muted}>点击主对话消息下的「侧聊」，从该消息发起新问题。</p>}
               <hr style={{ opacity: .25, margin: '16px 0' }} />
-              <p style={{ fontWeight: 600, fontSize: 13 }}>全部旁注</p>
+              <p style={{ fontWeight: 600, fontSize: 13 }}>全部侧聊</p>
               <input aria-label="搜索旁注" value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="搜索标题或引用内容" style={{ ...button, width: '100%', boxSizing: 'border-box' }} />
-              {filtered.length === 0 && <p style={muted}>无匹配旁注</p>}
+              {filtered.length === 0 && <p style={muted}>无匹配侧聊</p>}
               {filtered.map(n => <button key={n.id} type="button" style={{ ...button, display: 'block', marginBottom: 6, width: '100%', textAlign: 'left' }} onClick={() => { setActiveId(n.id); setHistory(undefined) }}>
                 {n.title} <span style={muted}>({n.status})</span>
               </button>)}
@@ -248,7 +247,7 @@ export function SideNotesOverlay({ api, bringBack, intent, currentSession }: Sid
                     )}
                   </div>
                 ))}
-                {!history && <div style={spinner}>正在加载独立会话历史……</div>}
+                {!history && <div style={spinner}>正在加载侧聊历史……</div>}
                 {history?.busy && <div style={spinner}>正在生成回答……</div>}
               </div>
               {active.status === 'active' && (
@@ -264,7 +263,7 @@ export function SideNotesOverlay({ api, bringBack, intent, currentSession }: Sid
               )}
               <footer style={{ padding: '8px 12px', borderTop: '1px solid var(--dsh-color-border, #cbd5e1)', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {active.status === 'archived' && <button style={button} onClick={() => change('restore')}>恢复</button>}
-                {active.status === 'active' && <button style={button} disabled={busy} onClick={summarize}>整理旁注摘要</button>}
+                {active.status === 'active' && <button style={button} disabled={busy} onClick={summarize}>整理侧聊摘要</button>}
                 {active.status === 'active' && <button style={button} onClick={() => change('archive')}>归档</button>}
                 {active.status !== 'promoted' && <button style={button} onClick={() => change('promote')}>升格正式对话</button>}
                 <button style={button} onClick={() => { setActiveId(undefined); setHistory(undefined) }}>返回目录</button>
