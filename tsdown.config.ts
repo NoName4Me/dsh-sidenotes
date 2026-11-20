@@ -7,6 +7,7 @@ export default defineConfig([
     format: 'esm',
     platform: 'node',
     clean: true,
+    tsconfig: './tsconfig.host.json',
     dts: false,
   },
   {
@@ -15,6 +16,7 @@ export default defineConfig([
     format: 'esm',
     platform: 'browser',
     clean: false,
+    tsconfig: './tsconfig.client.json',
     dts: false,
   },
 ])

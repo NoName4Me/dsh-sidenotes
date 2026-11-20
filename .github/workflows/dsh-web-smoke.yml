@@ -1,0 +1,124 @@
+name: DSH Web plugin smoke test
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'cordis.patch.yml'
+      - 'dsh.plugin.json'
+      - '.github/workflows/dsh-web-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  web-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.28.5'
+      - name: Install locked plugin toolchain
+        run: pnpm install --frozen-lockfile
+      - name: Build plugin
+        run: pnpm build
+      - name: Package local plugin
+        run: |
+          mkdir -p dist
+          pnpm pack --pack-destination dist
+          ls -la dist
+      - name: Check official DSH CLI
+        run: pnpm dlx @deepseek-ai/dsh@0.2.2-rc.5 --version
+      - name: Install SideNotes into a clean DSH Web Profile
+        env:
+          DSH_HOME: ${{ runner.temp }}/sidenotes-smoke-home
+          CI: "true"
+        run: |
+          pkg="$(find dist -name '*.tgz' -type f -print -quit)"
+          test -n "$pkg"
+          pnpm dlx @deepseek-ai/dsh@0.2.2-rc.5 plugin --profile web add "$(realpath "$pkg")"
+      - name: Verify authenticated SideNotes Host RPC
+        env:
+          DSH_HOME: ${{ runner.temp }}/sidenotes-smoke-home
+          CI: "true"
+        run: |
+          set -euo pipefail
+          pnpm dlx @deepseek-ai/dsh@0.2.2-rc.5 --profile web --no-open --port 31973 > dsh-web-smoke.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
+
+          for attempt in $(seq 1 60); do
+            if grep -q '^dsh web:' dsh-web-smoke.log; then break; fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              sed -E 's/token=[^[:space:]]+/token=[REDACTED]/g' dsh-web-smoke.log
+              echo "DSH exited before reporting its URL"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          url="$(awk '/^dsh web:/ {print $3; exit}' dsh-web-smoke.log)"
+          test -n "$url"
+
+          echo "--- SideNotes activation traces ---"
+          grep -F '[dsh-sidenotes]' dsh-web-smoke.log || true
+          if grep -Eiq 'entry did not activate|cannot get property|failed to activate|plugin .*failed' dsh-web-smoke.log; then
+            sed -E 's/token=[^[:space:]]+/token=[REDACTED]/g' dsh-web-smoke.log
+            echo "DSH reported a plugin activation problem"
+            exit 1
+          fi
+
+          # Use the official browser-token handshake exactly as the DSH CLI e2e does:
+          # a 303 exchange yields a Cookie bound to this authority.
+          node --input-type=module - "$url" <<'NODE'
+          const url = process.argv[2]
+          const login = await fetch(url, { redirect: 'manual' })
+          const cookie = login.headers.get('set-cookie')?.split(';', 1)[0]
+          if (login.status !== 303 || !cookie) {
+            throw new Error('DSH login token exchange did not provide an authenticated cookie')
+          }
+          const endpoint = new URL('/sidenotes/list', url)
+          const data = JSON.stringify({
+            type: 'client-request', rpcId: 'smoke-request',
+            method: 'list', payload: { parentSessionId: 'missing-parent' },
+          })
+          const post = (headers) => fetch(endpoint, {
+            method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: data,
+          })
+          const unauth = await post({})
+          if (![401, 403, 405].includes(unauth.status)) {
+            throw new Error('unauthenticated SideNotes route was not rejected: ' + unauth.status)
+          }
+          const auth = await post({ cookie })
+          if (auth.status !== 200) {
+            throw new Error('authenticated SideNotes route returned HTTP ' + auth.status)
+          }
+          const body = await auth.json()
+          if (body.type !== 'server-response' ||
+              body.rpcId !== 'smoke-request' || !body.result ||
+              body.result.ok !== false ||
+              typeof body.result.error.code !== 'string' ||
+              !body.result.error.code.startsWith('sidenotes/')) {
+            throw new Error('SideNotes authenticated route did not return its expected application response')
+          }
+          console.log('SideNotes authenticated Web RPC is active and reachable')
+          NODE
+      - name: Redact the one-time entry token before retaining diagnostics
+        if: always()
+        run: |
+          if [ -f dsh-web-smoke.log ]; then
+            sed -E 's/token=[^[:space:]]+/token=[REDACTED]/g' dsh-web-smoke.log > dsh-web-smoke-redacted.log
+          fi
+      - name: Preserve redacted startup diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-web-smoke-log
+          path: dsh-web-smoke-redacted.log
+          if-no-files-found: ignore

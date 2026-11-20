@@ -1,0 +1,38 @@
+name: Plugin build verification
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.28.5'
+      - name: Install DSH 0.2.2 release candidate dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Type-check Host and Client
+        run: pnpm typecheck
+      - name: Build plugin bundles
+        run: pnpm build
+      - name: Unit tests
+        run: pnpm test
+      - name: DSH adapter contract tests
+        run: node --experimental-transform-types --test integration/*.test.ts
+      - name: Package installable developer-preview tarball
+        run: |
+          mkdir -p dist
+          pnpm pack --pack-destination dist
+      - name: Publish CI installable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-sidenotes-developer-preview
+          path: dist/*.tgz
+          if-no-files-found: error

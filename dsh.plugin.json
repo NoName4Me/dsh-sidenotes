@@ -1,8 +1,16 @@
 {
   "id": "dsh-external/dsh-sidenotes",
   "version": "0.1.0-dev.0",
-  "main": "./lib/index.js",
-  "description": "Anchored side notes for DeepSeek Harness (development preview; no side-chat UI yet).",
-  "engines": { "dsh": ">=0.2.1-rc.1" },
-  "contributes": { "tools": [], "skills": [] }
+  "main": "./lib/index.mjs",
+  "description": "Anchored, context-aware side conversations with a right-edge index and isolated Agent sessions.",
+  "engines": {
+    "dsh": ">=0.2.2-rc.5 <0.2.3-0"
+  },
+  "contributes": {
+    "tools": [],
+    "skills": []
+  },
+  "client": {
+    "main": "./lib/client.js"
+  }
 }

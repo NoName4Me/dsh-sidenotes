@@ -6,8 +6,9 @@
 
 - [x] 产品设计、上下文与安全规则
 - [x] 开发规范和模块提交约定
-- [ ] DSH 版本固定、构建和 lockfile
-- [ ] CI 检查、Host/Client 插件最小加载验证
+- [x] DSH 0.2.2-rc.5 / Node 24 / pnpm 11 版本基线及 CI 构建工作流
+- [x] pnpm lockfile 入库、TypeScript 检查和完整 Host/Client 构建通过（CI）
+- [x] CI 完整构建、DSH Web Profile 打包安装、插件激活及认证 Host RPC 验证
 
 **完成定义**：在实际 DSH Web Profile 安装插件，能看到插件加载信号并且正常卸载。
 
@@ -22,28 +23,32 @@
 
 ## M2 — 真实 Session + 最小交互闭环
 
-- [ ] Host 真实 Session 创建/Fork，Agent followup、stream、cancel
-- [ ] Client 消息选区、右侧抽屉、独立消息流和输入框
-- [ ] 收起/恢复、父会话切换、页面刷新后的恢复
-- [ ] 测试只读权限策略、生命周期恢复、会话隔离
+- [x] Host Coordinator：授权入口、创建绑定、追问/取消/升格端口、重复请求与失败重试单测（Port 为模拟实现）
+- [x] DSH 0.2.2-rc.5 官方 Agent/Session API 适配、Fork、恢复及工具执行 deny-all 策略（源码及编译验证；待宿主安装实测）
+- [x] Client 选中消息提问、右侧旁注目录/抽屉、独立消息流、输入框（编译验证；待 Web 安装实测）
+- [x] UI 收起/切换及从 Host 元数据重新加载；页面刷新后的真实运行验证待做
+- [x] Fork 历史投影隔离（不重复显示主会话继承消息）
+- [ ] 真实运行时测试：只读工具阻断、热重载恢复和会话隔离
 
 **完成定义**：在 DSH 中创建并多轮使用两个侧枝，不影响主会话。
 
 ## M3 — 右缘索引与升格
 
-- [ ] 多旁注右缘条目和全集目录
-- [ ] 锚点定位、移动/丢失锚点处理、检索
-- [ ] 正式 Session 升格、归档与恢复
-- [ ] E2E 验证
+- [x] 多旁注右缘条目和全集目录
+- [x] 锚点定位（已渲染消息）、旁注标题/引用搜索；未加载锚点有提示
+- [x] Host 会话升格同一 Session、归档/恢复逻辑和单测（Web 列表真实可见性待验证）
+- [ ] 浏览器真实点击、模型多轮、升格/重启操作的人工验收（自动化 Web RPC 冒烟已通过）
 
 ## M4 — 可控回流
 
-- [ ] 复制回答与带回主草稿
-- [ ] 可选生成摘要并带来源
+- [x] 将指定旁注回答引用到主对话草稿（官方 Conversation.insertQuote，不自动发送；待 DSH Web 验证）
+- [x] 旁注一键请求 Agent 整理摘要，再由用户选择要带回的回答
 - [ ] 用户许可的 Agent 只读引用 API
-- [ ] 权限与上下文污染回归测试
+- [ ] 实际模型调用下的权限与上下文污染验收
 
 ## 尚未决策 / 待验证
+
+- 官方 SessionStore.fork() 只返回内存 Session；持久化侧枝须走 Agent 工厂的 create/seed/inheritedEventCount/parentSource 生命周期。
 
 - DSH 目标发行线的 Client Slot 及 Session 控制 API 是否能支持全部需求。
 - 隐藏会话在目标版本的归档、执行和升格行为。

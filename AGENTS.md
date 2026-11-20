@@ -29,4 +29,4 @@ This repository implements **SideNotes**, a DeepSeek Harness Web plugin. Read th
 
 ## Current caveat
 
-Host/Client entry points are **stubs**. No actual side-chat UI, Session Fork, RPC, Agent streaming or read-only enforcement exists yet. File storage is a single-process adapter that has not been wired to Host.
+Host/Client plugin entry points are **stubs**. The Host Coordinator and injectable file-backed runtime exist and are tested against a fake Session port, but the official DSH Agent bridge and owner-only Connection RPC are now coded, but they have not passed a full DSH package build or mounted runtime integration. There is still no Web UI or streaming client; the read-only guard is implemented but not yet exercised against real tools. Do not expose the Coordinator to a browser until real Host authorization and tool restrictions are implemented.
