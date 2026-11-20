@@ -1,0 +1,8 @@
+{
+  "id": "dsh-external/dsh-sidenotes",
+  "version": "0.1.0-dev.0",
+  "main": "./lib/index.js",
+  "description": "Anchored side notes for DeepSeek Harness (development preview; no side-chat UI yet).",
+  "engines": { "dsh": ">=0.2.1-rc.1" },
+  "contributes": { "tools": [], "skills": [] }
+}

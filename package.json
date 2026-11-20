@@ -1,0 +1,57 @@
+{
+  "name": "dsh-sidenotes",
+  "version": "0.1.0-dev.0",
+  "private": true,
+  "description": "Context-aware anchored side conversations for DeepSeek Harness",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NoName4Me/dsh-sidenotes.git"
+  },
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "dsh.plugin.json",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "pnpm build",
+    "typecheck:domain": "tsc -p tsconfig.domain.json --noEmit",
+    "check:manifest": "node scripts/check-manifest.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.0.6-alpha.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.6-alpha.2",
+    "@types/node": "^22.15.0",
+    "prettier": "^3.6.0",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "pnpm@10.28.0"
+}

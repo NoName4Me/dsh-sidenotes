@@ -1,0 +1,4 @@
+# Loaded as the package's dsh.bundle.patch layer.
+- insert:
+    - id: dsh-sidenotes
+      name: dsh-sidenotes

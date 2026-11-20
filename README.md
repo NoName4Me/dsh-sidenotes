@@ -27,3 +27,22 @@ This repository uses TypeScript, with separate Host and Client entry points. The
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Current implementation (M1 core, not yet usable in the DSH UI)
+
+The source now contains a strict TypeScript domain service, an in-memory repository for tests,
+and a versioned single-process JSON file repository for persistent side-note metadata.
+It covers request-key deduplication, parent isolation, child-session binding, archiving,
+restoring and promotion metadata. **DSH Session/Agent operations, host RPC and UI Slots are
+not yet wired up.** The packaged Host/Client entry points are development smoke-test stubs.
+
+To execute the dependency-free domain tests on Node 22.16+:
+
+```bash
+node --experimental-strip-types --test tests/*.test.ts
+```
+
+The domain tests have been run locally. The full DSH plugin build, pnpm lockfile generation
+and runtime integration must still be verified with the target Harness distribution.
+
+The plugin manifest and bundle patch can be checked without dependencies using `node scripts/check-manifest.mjs`.
