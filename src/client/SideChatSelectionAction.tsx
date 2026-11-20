@@ -121,14 +121,14 @@ export function SideChatSelectionAction({
   if (!target || !target.host.isConnected) return null
   return createPortal(
     <button type="button" className="sc-selection-action" data-side-chat-selection-button
-      aria-label="侧聊：就选中内容发起侧边对话"
+      aria-label="侧边聊：就选中内容发起侧边对话"
       onPointerDown={event => event.preventDefault()}
       onClick={() => {
         intent.open(target.sessionId, target.messageId, target.text)
         setTarget(null)
         document.getSelection()?.removeAllRanges()
         openSideChat()
-      }}>侧聊</button>,
+      }}>侧边聊</button>,
     target.host,
   )
 }

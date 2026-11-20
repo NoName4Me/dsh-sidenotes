@@ -2,7 +2,7 @@
 
 A context-aware side-conversation plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
 
-> **Developer preview (0.1.0-dev.3)** for **DSH 0.2.2-rc.5**. Installation, Host/Client compilation and the authenticated Host RPC are verified in an actual DSH Web Profile. Manual browser/LLM conversation acceptance is still required before general release.
+> **Developer preview (0.1.0-dev.4)** for **DSH 0.2.2-rc.5**. Installation, Host/Client compilation and the authenticated Host RPC are verified in an actual DSH Web Profile. Manual browser/LLM conversation acceptance is still required before general release.
 
 Side Chat lets you ask anchored questions without derailing the main conversation. Side threads are separate DSH Agent Sessions: the parent context is unchanged unless you explicitly copy an answer back to the main composer.
 
@@ -29,14 +29,14 @@ mkdir -p dist
 pnpm pack --pack-destination dist
 
 # In the installed DSH CLI environment:
-dsh plugin --profile web add ./dist/dsh-sidenotes-0.1.0-dev.3.tgz
+dsh plugin --profile web add ./dist/dsh-sidenotes-0.1.0-dev.4.tgz
 dsh --profile web
 ```
 
 For **Desktop**, use its own Plugins UI to install or update the tarball, or fully quit Desktop and use the **Desktop-bundled** `dsh` binary (not an npm-installed CLI):
 
 ```sh
-dsh plugin --profile desktop add /absolute/path/to/dsh-sidenotes-0.1.0-dev.3.tgz
+dsh plugin --profile desktop add /absolute/path/to/dsh-sidenotes-0.1.0-dev.4.tgz
 ```
 
 Restart Desktop afterward. Desktop and Web have **separate profiles**. Replace the tarball argument with its **absolute path** if you run `dsh plugin` from a different directory. The plugin's activation bundle is included in the package. In the UI, open a conversation and use the **侧聊** action below an assistant response, or select text and click the nearby **侧聊** button.
@@ -74,20 +74,24 @@ Main components:
 
 MIT. See [LICENSE](LICENSE).
 
-## Desktop UI compatibility fix (0.1.0-dev.3)
+## Desktop UI compatibility fix (0.1.0-dev.4)
 
 The first preview incorrectly published `lib/client.js` as an ES module. DSH's Web/Desktop plugin loader requires a classic script factory registered with `window.__ModuleLoader__.load({ id: 'dsh-sidenotes', factory })`. This release emits the required loader wrapper and fails its build check if a bare ESM output reappears. The installed plugin package identity remains `dsh-sidenotes`; the product branding is **Side Chat / 旁敲侧击**.
 
 ## Entry placement (Side Chat)
 
 - **Native right Sidebar:** independent chat history and composer; it shares the Host's tab strip, resizing, and layout.
-- **Left companion rail:** search control + vertical black dots, immediately left of DSH's Turn Navigator. Hover expands a compact rounded searchable card; each row shows a quotation and the latest reply.
-- **Message-edge anchor:** a small icon at the right of the original answer's content, aligned to the selected phrase when it can be located. Click to reopen that exact side conversation.
+- **Single directory:** browse and search side conversations in the native right Sidebar's Side Chat home. No extra floating dots or search rail.
+- **Message-edge anchor:** a small icon at the right of the original answer's content, aligned to the beginning of the full reply or the selected phrase. Hover shows the quotation and your first question.
 - **Selected-text capsule:** DSH's **引用文本** action and **侧聊** share one pill. This integration uses a small portal into the native Quote popup because DSH 0.2.2-rc.5 exposes an exclusive keyed interaction slot; it does not override or disable the built-in action. The menu appears after pointer release / completed keyboard selection, not while dragging.
 - **Jump back:** scrolls and flashes the selected text (or the whole message for a full-message side conversation). An exact text match is necessary for phrase-level highlight; if the source content has changed the UI reports the mismatch rather than highlighting unrelated text.
 
 The source message must still be loaded in the current conversation to support exact jumping and message-edge markers.
 
-**Dev.3 UI revision:** DSH-native color, typography, spacing and Tooltip treatments, icon-first action bars, unified selection capsule, source flash, left dot rail and inline source markers. These changes compile and pass Web Host startup checks, but the exact desktop interaction needs a real desktop walkthrough.
+**Dev.4 UI revision:** removed the redundant companion rail; source highlights the actual reply body, not the footer toolbar; the composer uses a compact dark circular send/stop control; plugin-center metadata and artwork are localized in exported en/zh files. These changes compile and pass Web Host startup checks, but the exact desktop interaction needs a real desktop walkthrough.
 
 > **Why the button was missing in dev.0:** The first release was built as ESM, which DSH's classic-script loader could not parse. Dev.1 fixed the client loader factory; dev.2 also replaces the extra right-edge rail with the native DSH right Sidebar tab and adds selected-text access. Update/reinstall the new package and restart the Desktop app. A successfully enabled Host plugin alone does not prove its Client factory ran.
+
+## Plugin Manager display
+
+The package exports `./icon` (original 36×36 SVG) and `./locale/en.json` / `./locale/zh.json`. DSH resolves the bundle's title and description according to the active UI locale; English is the fallback. The icon file has no enclosing tile so it remains legible in dark and light themes. UI labels keep the **侧边聊** action wording.

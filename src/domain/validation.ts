@@ -61,7 +61,7 @@ export function normalizeCreate(input: CreateSideNoteInput): Required<
   const title = (
     input.title?.trim() ||
     anchor.selectedText?.split(/\r?\n/u)[0]?.trim() ||
-    'New side note'
+    'New side chat'
   ).slice(0, MAX_TITLE)
   return { parentSessionId, clientRequestId, anchor, title, mode }
 }

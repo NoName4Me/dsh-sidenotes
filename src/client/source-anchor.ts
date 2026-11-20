@@ -1,22 +1,53 @@
-/** DOM locator for DSH's already-rendered transcript, never alters its text. */
+/** DSH's action lives in a turn-tail row, while the reply body lives in
+ * another assistant-step row. Never use the toolbar itself as a jump target.
+ */
 export interface SourceLocation {
   readonly action: HTMLElement
+  /** The assistant response, not the turn-tail action row. */
   readonly row: HTMLElement
   readonly source: HTMLElement | null
 }
-export function locateSource(messageId: string): SourceLocation | null {
+function textOf(row: HTMLElement): string {
+  const sources = row.querySelectorAll<HTMLElement>('[data-text-interaction-source]')
+  return Array.from(sources).map(node => node.textContent?.trim() ?? '').filter(Boolean).join(' ')
+}
+export function locateSource(messageId: string, selectedText?: string): SourceLocation | null {
   const action = Array.from(document.querySelectorAll<HTMLElement>('[data-sidenotes-anchor]'))
     .find(element => element.dataset.sidenotesAnchor === messageId)
   if (!action) return null
-  const row = action.closest<HTMLElement>('[data-chat-flow-kind]')
-  if (!row) return null
-  const inRow = row.querySelector<HTMLElement>('[data-text-interaction-source]')
-  if (inRow) return { action, row, source: inRow }
-  const turn = row.dataset.chatTurn
-  const flow = row.closest<HTMLElement>('[data-chat-flow]')
-  const candidates = Array.from(flow?.querySelectorAll<HTMLElement>('[data-text-interaction-source]') ?? [])
-    .filter(element => element.closest<HTMLElement>('[data-chat-turn]')?.dataset.chatTurn === turn)
-  return { action, row, source: candidates.at(-1) ?? null }
+  const tail = action.closest<HTMLElement>('[data-chat-turn]')
+  if (!tail) return null
+  const turn = tail.dataset.chatTurn
+  if (turn === undefined) return null
+  // A step group may add a nested [data-chat-flow]; use the outer transcript
+  // to find sibling assistant-step rows of the same turn.
+  let flow = tail.closest<HTMLElement>('[data-chat-flow]')
+  while (flow?.parentElement?.closest<HTMLElement>('[data-chat-flow]')) {
+    flow = flow.parentElement.closest<HTMLElement>('[data-chat-flow]') ?? flow
+  }
+  if (!flow) return null
+  const replies = Array.from(flow.querySelectorAll<HTMLElement>('[data-chat-flow-kind="assistant-step"]'))
+    .filter(node => node.dataset.chatTurn === turn && node.dataset.chatGroupPart !== 'reasoning')
+  if (replies.length === 0) return null
+  // The tail follows the reply; prefer the last response if the turn contains
+  // intermediate assistant steps.
+  let row = replies.at(-1)!
+  if (selectedText) {
+    row = replies.find(candidate =>
+      Array.from(candidate.querySelectorAll<HTMLElement>('[data-text-interaction-source]'))
+        .some(source => locateQuote(source, selectedText) !== null)) ?? row
+  }
+  const sources = Array.from(row.querySelectorAll<HTMLElement>('[data-text-interaction-source]'))
+  const source = selectedText
+    ? sources.find(node => locateQuote(node, selectedText)) ?? null
+    : sources.at(-1) ?? null
+  return { action, row, source }
+}
+export function sourceExcerpt(messageId: string): string | undefined {
+  const location = locateSource(messageId)
+  if (!location) return undefined
+  const text = textOf(location.row).replace(/\s+/gu, ' ').trim()
+  return text.length > 0 ? text.slice(0, 110) : undefined
 }
 
 /** Text nodes may be separated by Markdown inline markup; match across them. */
@@ -35,8 +66,6 @@ export function locateQuote(source: HTMLElement, original: string): Range | null
     nodes.push(node as Text)
     text += node.textContent ?? ''
   }
-  // DSH projects Markdown's soft line breaks into spaces for selection text.
-  // Fold whitespace for matching, but retain a map back to exact DOM offsets.
   const positions: number[] = []
   let folded = ''
   for (let i = 0; i < text.length; i++) {
@@ -66,14 +95,13 @@ export function locateQuote(source: HTMLElement, original: string): Range | null
 export function jumpToSource(
   messageId: string, selectedText?: string,
 ): 'ok' | 'not-loaded' | 'quote-not-found' {
-  const location = locateSource(messageId)
+  const location = locateSource(messageId, selectedText)
   if (!location) return 'not-loaded'
   const range = selectedText && location.source ? locateQuote(location.source, selectedText) : null
   if (selectedText && !range) return 'quote-not-found'
-  const target = location.source ?? location.row
+  const target = location.row
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
   target.scrollIntoView({ block: 'center', behavior: reduced ? 'instant' : 'smooth' })
-  // A long answer can contain the quoted fragment far below its start.
   if (range) {
     window.setTimeout(() => {
       const scroll = target.closest<HTMLElement>('[data-conversation-scroll]') ??
@@ -99,14 +127,14 @@ export function jumpToSource(
         document.body.append(marker)
         return marker
       })
-      window.setTimeout(() => masks.forEach(mask => mask.remove()), 2350)
+      window.setTimeout(() => masks.forEach(mask => mask.remove()), 2400)
     } else {
-      location.row.classList.remove('sc-jump-full')
-      // Restarting the CSS animation after repeated clicks.
-      void location.row.offsetWidth
-      location.row.classList.add('sc-jump-full')
-      window.setTimeout(() => location.row.classList.remove('sc-jump-full'), 2350)
+      // Flash the *full reply body*, never its closing button toolbar.
+      target.classList.remove('sc-jump-full')
+      void target.offsetWidth
+      target.classList.add('sc-jump-full')
+      window.setTimeout(() => target.classList.remove('sc-jump-full'), 2400)
     }
-  }, reduced ? 50 : 600)
+  }, reduced ? 30 : 540)
   return 'ok'
 }

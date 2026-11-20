@@ -38,3 +38,7 @@ Host/Client plugin entry points are **stubs**. The Host Coordinator and injectab
 - DSH's Quote selection action owns selection timing. Never watch `selectionchange` to continuously mount/move Side Chat controls during a drag.
 - Keep the Side Chat companion dot rail beside the original Turn Navigator and the conversation itself in the native right Sidebar tab.
 - Source markers must not change chat messages, clone markdown, or silently modify the main Session. Jump highlighting is temporary and scope-specific.
+
+## Dev.4 interaction refinements
+
+Do not re-add the left dot rail; the right Sidebar directory is the only index. Source highlighting must resolve an assistant-step response, never the turn-tail footer. Message-edge tooltips show source quote and first user question. Do not add redundant success notices on source jump or quote insertion. The send/stop control occupies one dark 29px circular button in the composer card. Export plugin icon and en/zh locale metadata, and keep packed resources in sync.

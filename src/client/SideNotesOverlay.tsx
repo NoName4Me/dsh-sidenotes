@@ -5,7 +5,7 @@ import type { SideNotesApi } from './api.ts'
 import type { SideChatCatalog } from './catalog.ts'
 import type { SideNoteIntent, SideNoteIntentStore } from './intent.ts'
 import { SideChatIcon, SideChatIconButton } from './Icon.tsx'
-import { jumpToSource } from './source-anchor.ts'
+import { jumpToSource, sourceExcerpt } from './source-anchor.ts'
 
 interface CurrentSessionSource {
   getSnapshot(): { key?: string }
@@ -41,7 +41,6 @@ export function SideNotesOverlay({
   const [history, setHistory] = useState<SideNoteHistory | undefined>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | undefined>()
-  const [notice, setNotice] = useState<string | undefined>()
   const [copied, setCopied] = useState<string | undefined>()
   const [revision, setRevision] = useState(0)
   const refresh = useCallback(() => setRevision(n => n + 1), [])
@@ -54,7 +53,6 @@ export function SideNotesOverlay({
     setView('directory')
     setDraft('')
     setError(undefined)
-    setNotice(undefined)
     catalog.setSession(sessionId)
   }, [sessionId, catalog])
   useEffect(() => {
@@ -63,7 +61,7 @@ export function SideNotesOverlay({
   }, [catalog, sessionId, revision])
   useEffect(() => {
     if (!request || request.sessionId !== sessionId) return
-    setError(undefined); setNotice(undefined); setHistory(undefined)
+    setError(undefined); setHistory(undefined)
     if (request.existingNoteId) {
       setActiveId(request.existingNoteId)
       catalog.setActive(request.existingNoteId)
@@ -98,6 +96,9 @@ export function SideNotesOverlay({
   }, [api, catalog, sessionId, activeId, view])
 
   const notes = state.sessionId === sessionId ? state.notes : []
+  const displayTitle = (note: SideNote): string =>
+    /^(New side note|New side chat)$/u.test(note.title)
+      ? sourceExcerpt(note.anchor.messageId) ?? '侧边聊' : note.title
   const active = notes.find(note => note.id === activeId)
   const query = search.trim().toLowerCase()
   const filtered = notes.filter(note => {
@@ -106,7 +107,7 @@ export function SideNotesOverlay({
   })
   const back = () => {
     setActiveId(undefined); setView('directory'); setHistory(undefined)
-    catalog.setActive(undefined); setError(undefined); setNotice(undefined)
+    catalog.setActive(undefined); setError(undefined)
   }
   const openNote = (noteId: string) => {
     setActiveId(noteId); setView('thread')
@@ -115,7 +116,7 @@ export function SideNotesOverlay({
   }
   const invoke = async (action: () => Promise<void>) => {
     if (busy) return
-    setBusy(true); setError(undefined); setNotice(undefined)
+    setBusy(true); setError(undefined)
     try {
       await action()
       refresh()
@@ -135,6 +136,7 @@ export function SideNotesOverlay({
           ...(request.selectedText ? { selectedText: request.selectedText } : {}),
         },
         mode,
+        ...(request.sourceTitle || request.selectedText ? { title: (request.sourceTitle || request.selectedText || '').slice(0, 120) } : {}),
       })
       catalog.upsert(note)
       openNote(note.id)
@@ -154,14 +156,12 @@ export function SideNotesOverlay({
     if (!sessionId || !activeId || active?.status !== 'active') return
     void invoke(() => api.followup(sessionId, activeId,
       '请概括本次侧聊已经确定的结论、关键依据和待解决的问题。请简洁准确，不引入没有讨论过的假设。'))
-    setNotice('已请求生成摘要，完成后可选择引用到主对话')
   }
   const change = (operation: 'archive' | 'restore' | 'promote') => {
     if (!sessionId || !activeId) return
     void invoke(async () => {
       const note = await api[operation](sessionId, activeId)
       catalog.upsert(note)
-      if (operation === 'promote') setNotice('已升格为正式对话，可在会话列表中继续')
       if (operation === 'archive') back()
     })
   }
@@ -170,19 +170,17 @@ export function SideNotesOverlay({
     const result = jumpToSource(active.anchor.messageId, active.anchor.selectedText)
     if (result === 'not-loaded') setError('来源消息尚未加载。可先滚动主会话加载对应历史。')
     else if (result === 'quote-not-found') setError('原文内容已变化，无法精确定位选中片段。')
-    else { setError(undefined); setNotice('已定位并高亮来源') }
+    else setError(undefined)
   }
   const copy = (id: string, text: string) => {
     void navigator.clipboard.writeText(text).then(() => {
-      setCopied(id); setNotice('已复制')
+      setCopied(id)
     }).catch(() => setError('复制失败，请选中文本后复制'))
   }
   const quote = (text: string) => {
     if (!sessionId || !active) return
-    if (bringBack(sessionId, active.title, text)) {
-      setNotice('已插入主对话草稿，尚未发送')
-      setError(undefined)
-    } else setError('主对话编辑器暂不可用，请稍后重试')
+    if (bringBack(sessionId, displayTitle(active), text)) setError(undefined)
+    else setError('主对话编辑器暂不可用，请稍后重试')
   }
   if (!sessionId) return <div className="sc-empty">选择一段主对话后即可使用侧聊</div>
 
@@ -190,7 +188,7 @@ export function SideNotesOverlay({
     <section className="sc-root" aria-label="旁敲侧击 · Side Chat">
       <header className="sc-header">
         {view !== 'directory' && <SideChatIconButton label="返回侧聊目录" icon="back" onClick={back} />}
-        <div className="sc-heading">{view === 'thread' ? active?.title ?? '侧边对话' :
+        <div className="sc-heading">{view === 'thread' ? active ? displayTitle(active) : '侧边对话' :
           view === 'create' ? '发起侧聊' : '旁敲侧击'}</div>
         {view === 'directory' && <span className="sc-status">{notes.filter(n => n.status === 'active').length} 条侧聊</span>}
         {view === 'thread' && active && (
@@ -219,7 +217,7 @@ export function SideNotesOverlay({
             {filtered.map(note => (
               <button type="button" key={note.id} className="sc-item"
                 data-active={activeId === note.id} onClick={() => openNote(note.id)}>
-                <div className="sc-item-title">{note.anchor.selectedText || note.title}</div>
+                <div className="sc-item-title">{note.anchor.selectedText || displayTitle(note)}</div>
                 <div className="sc-item-preview">{state.previews[note.id] || '暂无回答'}</div>
                 <div className="sc-status" style={{ marginTop: 5 }}>{statusOf(note)}</div>
               </button>
@@ -233,7 +231,7 @@ export function SideNotesOverlay({
           <div className="sc-scroll sc-padded" style={{ display: 'grid', alignContent: 'start', gap: 14 }}>
             <div>
               <div className="sc-section-label">引用自主对话</div>
-              <blockquote className="sc-quote">{request?.selectedText || '整条 AI 回复'}</blockquote>
+              <blockquote className="sc-quote">{request?.selectedText || request?.sourceTitle || 'AI 回复'}</blockquote>
             </div>
             <div>
               <label htmlFor="sc-context-mode" className="sc-section-label" style={{ display: 'block' }}>上下文范围</label>
@@ -243,17 +241,19 @@ export function SideNotesOverlay({
                 <option value="fork">继承 · 带入此前主对话</option>
               </select>
             </div>
-            <p className="sc-muted" style={{ margin: 0 }}>侧聊会独立保存，不会向主对话自动发送内容。</p>
           </div>
           <div className="sc-composer">
-            <textarea autoFocus className="sc-field sc-textarea" aria-label="新侧聊问题"
-              placeholder="想就这段内容问什么？" rows={4} value={draft} disabled={busy}
-              onChange={event => setDraft(event.target.value)}
-              onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); create() } }} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="sc-btn sc-btn-primary" disabled={!draft.trim() || busy} onClick={create}>
-                <SideChatIcon name="send" /> 发起侧聊
-              </button>
+            <div className="sc-composer-card">
+              <textarea autoFocus className="sc-composer-input" aria-label="新侧边聊问题"
+                placeholder="想就这段内容问什么？" rows={3} value={draft} disabled={busy}
+                onChange={event => setDraft(event.target.value)}
+                onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); create() } }} />
+              <div className="sc-composer-actions">
+                <button className="sc-send" type="button" aria-label="发送侧边聊"
+                  title="发送 (Ctrl/⌘ + Enter)" disabled={!draft.trim() || busy} onClick={create}>
+                  <SideChatIcon name="send" />
+                </button>
+              </div>
             </div>
           </div>
         </>
@@ -262,8 +262,7 @@ export function SideNotesOverlay({
       {view === 'thread' && active && (
         <>
           <div className="sc-message-header">
-            <div className="sc-status">独立对话 · {statusOf(active)}</div>
-            <blockquote className="sc-quote">{active.anchor.selectedText || '引用整条 AI 回复'}</blockquote>
+            <blockquote className="sc-quote">{active.anchor.selectedText || displayTitle(active)}</blockquote>
           </div>
           <div className="sc-scroll" role="log" aria-live="polite">
             <div className="sc-msg-list">
@@ -290,27 +289,28 @@ export function SideNotesOverlay({
           </div>
           {active.status === 'active' ? (
             <div className="sc-composer">
-              <textarea className="sc-field sc-textarea" rows={2}
-                aria-label="继续侧聊" placeholder="继续追问…（Ctrl/⌘ + Enter 发送）"
-                disabled={busy} value={draft}
-                onChange={event => setDraft(event.target.value)}
-                onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); send() } }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="sc-status">与主对话相互隔离</span>
-                <div className="sc-toolbar">
-                  {history?.busy && <SideChatIconButton label="停止生成" icon="stop"
-                    disabled={busy} onClick={() => void invoke(() => api.cancel(sessionId, active.id))} />}
-                  <button className="sc-btn sc-btn-primary" disabled={busy || !draft.trim()} onClick={send}>
-                    <SideChatIcon name="send" /> 发送
+              <div className="sc-composer-card">
+                <textarea className="sc-composer-input" rows={2} aria-label="继续侧边聊"
+                  placeholder="继续追问…" disabled={busy} value={draft}
+                  onChange={event => setDraft(event.target.value)}
+                  onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); send() } }} />
+                <div className="sc-composer-actions">
+                  <button className="sc-send" type="button"
+                    title={history?.busy ? '停止生成' : '发送 (Ctrl/⌘ + Enter)'}
+                    aria-label={history?.busy ? '停止生成' : '发送侧边聊'}
+                    disabled={busy || (!history?.busy && !draft.trim())}
+                    onClick={history?.busy
+                      ? () => void invoke(() => api.cancel(sessionId, active.id)) : send}>
+                    <SideChatIcon name={history?.busy ? 'stop' : 'send'} />
                   </button>
                 </div>
               </div>
             </div>
-          ) : <div className="sc-composer sc-status">本侧聊已{active.status === 'promoted' ? '升格为正式对话' : '归档'}。{active.status === 'archived' ? '恢复后可继续追问。' : '可从正式会话列表继续。'}</div>}
+          ) : <div className="sc-composer sc-status">{active.status === 'archived'
+            ? '已归档，可通过顶部操作恢复。' : '已升格，请在正式会话中继续。'}</div>}
         </>
       )}
       {view === 'thread' && !active && <div className="sc-empty">侧聊不存在或已被删除，请返回目录。</div>}
-      {notice && <div className="sc-status" role="status" style={{ padding: '7px 14px' }}>{notice}</div>}
       {error && <div className="sc-alert" role="alert">{error}</div>}
     </section>
   )

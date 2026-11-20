@@ -13,7 +13,6 @@ import { SideNotesOverlay } from './SideNotesOverlay.tsx'
 import { SideChatSelectionAction } from './SideChatSelectionAction.tsx'
 import { sideChatStyles } from './styles.ts'
 import { SideChatCatalog } from './catalog.ts'
-import { SideChatRail } from './SideChatRail.tsx'
 import { SideChatMarkers } from './SideChatMarkers.tsx'
 
 export const name = 'dsh-sidenotes-client'
@@ -64,13 +63,6 @@ export function apply(ctx: Context): void {
       key: 'dsh-sidenotes-side-chat',
       inject: () => ({ intent, api, bringBack, currentSession, catalog }),
     }, SideNotesOverlay))
-
-  ctx.slots.inject('shell.overlay', () =>
-    ctx.slots.register({
-      name: 'shell.overlay',
-      id: 'dsh-sidenotes-rail',
-      inject: () => ({ intent, currentSession, catalog, openSideChat }),
-    }, SideChatRail))
 
   ctx.slots.inject('shell.overlay', () =>
     ctx.slots.register({

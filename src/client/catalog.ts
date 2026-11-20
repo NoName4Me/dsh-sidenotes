@@ -6,12 +6,13 @@ export interface CatalogSnapshot {
   readonly sessionId: string | undefined
   readonly notes: readonly SideNote[]
   readonly previews: Readonly<Record<string, string>>
+  readonly questions: Readonly<Record<string, string>>
   readonly activeId: string | undefined
 }
 
 /** One shared view of Session-scoped side conversations for rail, markers and Sidebar. */
 export class SideChatCatalog {
-  private state: CatalogSnapshot = { sessionId: undefined, notes: [], previews: {}, activeId: undefined }
+  private state: CatalogSnapshot = { sessionId: undefined, notes: [], previews: {}, questions: {}, activeId: undefined }
   private readonly listeners = new Set<() => void>()
   private listRequest: Promise<void> | undefined
   private readonly previewsInFlight = new Set<string>()
@@ -29,7 +30,7 @@ export class SideChatCatalog {
     if (sessionId === this.state.sessionId) return
     this.listRequest = undefined
     this.previewsInFlight.clear()
-    this.publish({ sessionId, notes: [], previews: {}, activeId: undefined })
+    this.publish({ sessionId, notes: [], previews: {}, questions: {}, activeId: undefined })
   }
   setActive(activeId: string | undefined): void {
     if (this.state.activeId !== activeId) this.publish({ activeId })
@@ -42,10 +43,13 @@ export class SideChatCatalog {
     })
   }
   preview(noteId: string, history: SideNoteHistory): void {
-    const text = [...history.items].reverse().find(item => item.role === 'assistant')?.text
-    if (text !== undefined && text !== this.state.previews[noteId]) {
-      this.publish({ previews: { ...this.state.previews, [noteId]: text.slice(0, 400) } })
-    }
+    const reply = [...history.items].reverse().find(item => item.role === 'assistant')?.text
+    const question = history.items.find(item => item.role === 'user')?.text
+    if (reply === this.state.previews[noteId] && question === this.state.questions[noteId]) return
+    this.publish({
+      previews: reply === undefined ? this.state.previews : { ...this.state.previews, [noteId]: reply.slice(0, 400) },
+      questions: question === undefined ? this.state.questions : { ...this.state.questions, [noteId]: question.slice(0, 200) },
+    })
   }
   refresh(sessionId: string): Promise<void> {
     this.setSession(sessionId)
@@ -63,7 +67,7 @@ export class SideChatCatalog {
     return task
   }
   private loadPreview(sessionId: string, noteId: string): void {
-    if (this.state.previews[noteId] !== undefined || this.previewsInFlight.has(noteId)) return
+    if (this.state.questions[noteId] !== undefined || this.previewsInFlight.has(noteId)) return
     this.previewsInFlight.add(noteId)
     void this.api.history(sessionId, noteId)
       .then(history => {
