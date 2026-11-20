@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
-import type { CSSProperties } from 'react'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import type { SideNote } from '../domain/types.ts'
 import type { SideNoteHistory } from '../host/rpc.ts'
 import type { SideNotesApi } from './api.ts'
+import type { SideChatCatalog } from './catalog.ts'
 import type { SideNoteIntent, SideNoteIntentStore } from './intent.ts'
+import { SideChatIcon, SideChatIconButton } from './Icon.tsx'
+import { jumpToSource } from './source-anchor.ts'
 
 interface CurrentSessionSource {
   getSnapshot(): { key?: string }
@@ -12,118 +13,119 @@ interface CurrentSessionSource {
 }
 interface SideNotesOverlayProps {
   readonly api: SideNotesApi
+  readonly catalog: SideChatCatalog
   readonly bringBack: (parentSessionId: string, title: string, text: string) => boolean
   readonly intent: SideNoteIntentStore
   readonly currentSession: CurrentSessionSource
 }
+type View = 'directory' | 'create' | 'thread'
 
-const surface: CSSProperties = {
-  background: 'var(--dsh-color-surface, #fff)',
-  color: 'var(--dsh-color-text, #1f2937)',
-  border: '1px solid var(--dsh-color-border, #cbd5e1)',
-  boxShadow: '0 10px 35px rgba(0,0,0,.14)',
+function statusOf(note: SideNote): string {
+  if (note.status === 'archived') return '已归档'
+  if (note.status === 'promoted') return '已升格'
+  return note.mode === 'fork' ? '继承上下文' : '独立上下文'
 }
-const button: CSSProperties = {
-  background: 'transparent', border: '1px solid var(--dsh-color-border, #cbd5e1)',
-  borderRadius: 7, padding: '6px 9px', cursor: 'pointer', color: 'inherit',
-  fontSize: 12,
-}
-const muted: CSSProperties = { color: 'var(--dsh-color-text-secondary, #64748b)', fontSize: 12 }
-const spinner: CSSProperties = { ...muted, padding: '10px 0' }
 
-export function SideNotesOverlay({ api, bringBack, intent, currentSession }: SideNotesOverlayProps) {
+/** Native right-Sidebar page: one screen at a time, never a second floating rail. */
+export function SideNotesOverlay({
+  api, catalog, bringBack, intent, currentSession,
+}: SideNotesOverlayProps) {
+  const state = useSyncExternalStore(catalog.subscribe, catalog.getSnapshot)
   const [sessionId, setSessionId] = useState<string | undefined>(() => currentSession.getSnapshot().key)
   const [request, setRequest] = useState<SideNoteIntent | undefined>(() => intent.getSnapshot())
-  const [notes, setNotes] = useState<SideNote[]>([])
+  const [view, setView] = useState<View>('directory')
   const [activeId, setActiveId] = useState<string | undefined>()
-  const [expanded, setExpanded] = useState(false)
   const [mode, setMode] = useState<'light' | 'fork'>('light')
   const [draft, setDraft] = useState('')
   const [search, setSearch] = useState('')
   const [history, setHistory] = useState<SideNoteHistory | undefined>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | undefined>()
+  const [notice, setNotice] = useState<string | undefined>()
+  const [copied, setCopied] = useState<string | undefined>()
   const [revision, setRevision] = useState(0)
   const refresh = useCallback(() => setRevision(n => n + 1), [])
 
-  useEffect(() => currentSession.subscribe(() => {
-    setSessionId(currentSession.getSnapshot().key)
-  }), [currentSession])
+  useEffect(() => currentSession.subscribe(() => setSessionId(currentSession.getSnapshot().key)), [currentSession])
   useEffect(() => intent.subscribe(() => setRequest(intent.getSnapshot())), [intent])
-
   useEffect(() => {
     setActiveId(undefined)
-    setExpanded(false)
     setHistory(undefined)
+    setView('directory')
+    setDraft('')
     setError(undefined)
-  }, [sessionId])
-
+    setNotice(undefined)
+    catalog.setSession(sessionId)
+  }, [sessionId, catalog])
   useEffect(() => {
     if (!sessionId) return
-    let cancelled = false
-    api.list(sessionId).then(items => {
-      if (!cancelled) setNotes(items)
-    }).catch(e => {
-      if (!cancelled) setError(String(e))
-    })
-    return () => { cancelled = true }
-  }, [api, sessionId, revision])
-
+    void catalog.refresh(sessionId).catch(error => setError(String(error)))
+  }, [catalog, sessionId, revision])
   useEffect(() => {
     if (!request || request.sessionId !== sessionId) return
-    setExpanded(true)
-    setActiveId(undefined)
-    setError(undefined)
-    setDraft('')
-  }, [request, sessionId])
-
+    setError(undefined); setNotice(undefined); setHistory(undefined)
+    if (request.existingNoteId) {
+      setActiveId(request.existingNoteId)
+      catalog.setActive(request.existingNoteId)
+      setView('thread')
+    } else {
+      setActiveId(undefined)
+      catalog.setActive(undefined)
+      setView('create')
+      setDraft('')
+    }
+  }, [request, sessionId, catalog])
   useEffect(() => {
-    if (!sessionId || !activeId || !expanded) return
+    if (!sessionId || !activeId || view !== 'thread') return
     let closed = false
     let inFlight = false
     const load = async () => {
       if (inFlight || closed) return
       inFlight = true
       try {
-        const view = await api.history(sessionId, activeId)
-        if (!closed) setHistory(view)
-      } catch (e) {
-        if (!closed) setError(String(e))
+        const latest = await api.history(sessionId, activeId)
+        if (!closed) {
+          setHistory(latest)
+          catalog.preview(activeId, latest)
+        }
+      } catch (err) {
+        if (!closed) setError(String(err))
       } finally { inFlight = false }
     }
     void load()
-    const timer = window.setInterval(() => void load(), 1100)
+    const timer = window.setInterval(() => void load(), 1250)
     return () => { closed = true; window.clearInterval(timer) }
-  }, [api, sessionId, activeId, expanded])
+  }, [api, catalog, sessionId, activeId, view])
 
-  const active = notes.find(n => n.id === activeId)
-  const visible = notes.filter(n => n.status === 'active')
-  const filtered = notes.filter(n =>
-    (n.title + ' ' + (n.anchor.selectedText ?? '')).toLowerCase().includes(search.trim().toLowerCase()))
-  const jumpToAnchor = (messageId: string) => {
-    const target = Array.from(document.querySelectorAll<HTMLElement>('[data-sidenotes-anchor]'))
-      .find(element => element.dataset.sidenotesAnchor === messageId)
-    if (!target) {
-      setError('来源消息不在当前已加载的聊天内容中，可滚动主对话加载后再试。')
-      return
-    }
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    setError(undefined)
+  const notes = state.sessionId === sessionId ? state.notes : []
+  const active = notes.find(note => note.id === activeId)
+  const query = search.trim().toLowerCase()
+  const filtered = notes.filter(note => {
+    const original = note.anchor.selectedText ?? note.title
+    return (original + ' ' + (state.previews[note.id] ?? '')).toLowerCase().includes(query)
+  })
+  const back = () => {
+    setActiveId(undefined); setView('directory'); setHistory(undefined)
+    catalog.setActive(undefined); setError(undefined); setNotice(undefined)
   }
-  const invoke = async (action: () => Promise<unknown>) => {
-    setBusy(true)
-    setError(undefined)
+  const openNote = (noteId: string) => {
+    setActiveId(noteId); setView('thread')
+    setHistory(undefined); setDraft(''); setError(undefined)
+    catalog.setActive(noteId)
+  }
+  const invoke = async (action: () => Promise<void>) => {
+    if (busy) return
+    setBusy(true); setError(undefined); setNotice(undefined)
     try {
       await action()
       refresh()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally { setBusy(false) }
   }
-  // A question creates the side Session and starts its first turn in one action.
   const create = () => {
     if (!sessionId || !request || request.sessionId !== sessionId || !draft.trim()) return
-    const firstQuestion = draft.trim()
+    const question = draft.trim()
     void invoke(async () => {
       const note = await api.create({
         parentSessionId: sessionId,
@@ -134,145 +136,182 @@ export function SideNotesOverlay({ api, bringBack, intent, currentSession }: Sid
         },
         mode,
       })
-      setActiveId(note.id)
-      setHistory(undefined)
-      setNotes(items => [...items.filter(item => item.id !== note.id), note])
-      await api.followup(sessionId, note.id, firstQuestion)
+      catalog.upsert(note)
+      openNote(note.id)
+      await api.followup(sessionId, note.id, question)
       setDraft('')
     })
   }
   const send = () => {
     if (!sessionId || !activeId || !draft.trim()) return
-    const text = draft.trim()
+    const question = draft.trim()
     void invoke(async () => {
-      await api.followup(sessionId, activeId, text)
+      await api.followup(sessionId, activeId, question)
       setDraft('')
     })
   }
   const summarize = () => {
-    if (!sessionId || !activeId || !active || active.status !== 'active') return
-    void invoke(async () => {
-      await api.followup(sessionId, activeId,
-        '请基于这个旁注中目前的讨论，整理一份简明结论摘要：核心概念、已经确定的结论、仍需注意的问题。不要引入主对话中尚未讨论的假设。')
-    })
+    if (!sessionId || !activeId || active?.status !== 'active') return
+    void invoke(() => api.followup(sessionId, activeId,
+      '请概括本次侧聊已经确定的结论、关键依据和待解决的问题。请简洁准确，不引入没有讨论过的假设。'))
+    setNotice('已请求生成摘要，完成后可选择引用到主对话')
   }
-  const copyText = (value: string) => {
-    void navigator.clipboard.writeText(value).catch(() => {
-      setError('复制失败，请手动选中文本复制')
-    })
-  }
-  const change = (action: 'archive' | 'restore' | 'promote') => {
+  const change = (operation: 'archive' | 'restore' | 'promote') => {
     if (!sessionId || !activeId) return
     void invoke(async () => {
-      const note = await api[action](sessionId, activeId)
-      setNotes(items => items.map(n => n.id === note.id ? note : n))
+      const note = await api[operation](sessionId, activeId)
+      catalog.upsert(note)
+      if (operation === 'promote') setNotice('已升格为正式对话，可在会话列表中继续')
+      if (operation === 'archive') back()
     })
   }
+  const jump = () => {
+    if (!active) return
+    const result = jumpToSource(active.anchor.messageId, active.anchor.selectedText)
+    if (result === 'not-loaded') setError('来源消息尚未加载。可先滚动主会话加载对应历史。')
+    else if (result === 'quote-not-found') setError('原文内容已变化，无法精确定位选中片段。')
+    else { setError(undefined); setNotice('已定位并高亮来源') }
+  }
+  const copy = (id: string, text: string) => {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(id); setNotice('已复制')
+    }).catch(() => setError('复制失败，请选中文本后复制'))
+  }
+  const quote = (text: string) => {
+    if (!sessionId || !active) return
+    if (bringBack(sessionId, active.title, text)) {
+      setNotice('已插入主对话草稿，尚未发送')
+      setError(undefined)
+    } else setError('主对话编辑器暂不可用，请稍后重试')
+  }
+  if (!sessionId) return <div className="sc-empty">选择一段主对话后即可使用侧聊</div>
 
-  if (!sessionId) return null
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <aside aria-label="侧聊目录" style={{ ...surface, display: expanded ? 'none' : 'flex', flex: 1, width: '100%', minHeight: 0, overflowY: 'auto', boxSizing: 'border-box', padding: 12, border: 'none', boxShadow: 'none', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, padding: '4px 3px' }}>侧聊 · {visible.length}</div>
-        <button style={button} onClick={() => { setExpanded(v => !v); setActiveId(undefined); setError(undefined) }} title="浏览所有旁注">＋ / 目录</button>
-        {visible.map(n => (
-          <button key={n.id} type="button" title={n.title} style={{ ...button, borderColor: activeId === n.id ? '#64748b' : undefined, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }} onClick={() => {
-            setActiveId(n.id)
-            setExpanded(true)
-            setHistory(undefined)
-            setError(undefined)
-          }}>
-            {n.title.slice(0, 25)}
-          </button>
-        ))}
-      </aside>
+    <section className="sc-root" aria-label="旁敲侧击 · Side Chat">
+      <header className="sc-header">
+        {view !== 'directory' && <SideChatIconButton label="返回侧聊目录" icon="back" onClick={back} />}
+        <div className="sc-heading">{view === 'thread' ? active?.title ?? '侧边对话' :
+          view === 'create' ? '发起侧聊' : '旁敲侧击'}</div>
+        {view === 'directory' && <span className="sc-status">{notes.filter(n => n.status === 'active').length} 条侧聊</span>}
+        {view === 'thread' && active && (
+          <div className="sc-toolbar">
+            <SideChatIconButton label="定位并高亮原消息" icon="locate" onClick={jump} />
+            {active.status === 'active' && <SideChatIconButton label="生成侧聊摘要" icon="sparkle" disabled={busy} onClick={summarize} />}
+            {active.status === 'active' && <SideChatIconButton label="归档侧聊" icon="archive" disabled={busy} onClick={() => change('archive')} />}
+            {active.status === 'archived' && <SideChatIconButton label="恢复侧聊" icon="restore" disabled={busy} onClick={() => change('restore')} />}
+            {active.status !== 'promoted' && <SideChatIconButton label="升格为正式对话" icon="promote" disabled={busy} onClick={() => change('promote')} />}
+          </div>
+        )}
+      </header>
 
-      {expanded && (
-        <section aria-label="侧边对话" style={{ ...surface, width: '100%', height: '100%', minHeight: 0, flex: 1, border: 'none', boxShadow: 'none', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <header style={{ display: 'flex', alignItems: 'center', padding: 12, borderBottom: '1px solid var(--dsh-color-border, #cbd5e1)', gap: 8 }}>
-            <strong style={{ fontSize: 14, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{active?.title ?? '侧边对话'}</strong>
-            <button type="button" style={button} onClick={() => setExpanded(false)} aria-label="收起旁注">收起</button>
-          </header>
-
-          {!active ? (
-            <div style={{ overflowY: 'auto', padding: 14, flex: 1 }}>
-              {request?.sessionId === sessionId ? (
-                <div style={{ display: 'grid', gap: 10 }}>
-                  <p style={{ ...muted, margin: 0 }}>来自消息的独立追问。这里的问答不会写入主对话。</p>
-                  {request.selectedText && <blockquote style={{ fontSize: 12, margin: 0, padding: 9, borderLeft: '3px solid #94a3b8', maxHeight: 120, overflow: 'auto', whiteSpace: 'pre-wrap' }}>{request.selectedText}</blockquote>}
-                  <label style={{ fontSize: 12 }}>上下文模式</label>
-                  <select value={mode} onChange={e => setMode(e.target.value as 'light' | 'fork')} style={{ ...button, background: 'inherit' }}>
-                    <option value="light">轻量旁注</option><option value="fork">继承完整上下文（Fork）</option>
-                  </select>
-                  <textarea aria-label="新侧聊问题" rows={3} value={draft} disabled={busy}
-                    placeholder="输入问题，发送后自动创建独立侧聊……"
-                    onChange={e => setDraft(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); create() } }}
-                    style={{ fontFamily: 'inherit', resize: 'vertical', padding: 9, border: '1px solid #94a3b8', borderRadius: 8, color: 'inherit', background: 'inherit', fontSize: 13 }} />
-                  <button style={button} disabled={busy || !draft.trim()} onClick={create}>提问并创建侧聊 Ctrl+Enter</button>
-                </div>
-              ) : <p style={muted}>点击主对话消息下的「侧聊」，从该消息发起新问题。</p>}
-              <hr style={{ opacity: .25, margin: '16px 0' }} />
-              <p style={{ fontWeight: 600, fontSize: 13 }}>全部侧聊</p>
-              <input aria-label="搜索旁注" value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="搜索标题或引用内容" style={{ ...button, width: '100%', boxSizing: 'border-box' }} />
-              {filtered.length === 0 && <p style={muted}>无匹配侧聊</p>}
-              {filtered.map(n => <button key={n.id} type="button" style={{ ...button, display: 'block', marginBottom: 6, width: '100%', textAlign: 'left' }} onClick={() => { setActiveId(n.id); setHistory(undefined) }}>
-                {n.title} <span style={muted}>({n.status})</span>
-              </button>)}
+      {view === 'directory' && (
+        <div className="sc-scroll">
+          <div className="sc-padded" style={{ paddingBottom: 8 }}>
+            <div className="sc-muted" style={{ marginBottom: 12 }}>
+              围绕主对话的独立讨论，不打断原有上下文。
             </div>
-          ) : (
-            <>
-              <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--dsh-color-border, #cbd5e1)' }}>
-                <span style={muted}>独立 Session · {active.status === 'promoted' ? '已升格' : '不影响主对话'}</span>
-                <button type="button" style={{ ...button, marginTop: 6 }}
-                  onClick={() => jumpToAnchor(active.anchor.messageId)}>定位原消息</button>
-                {active.anchor.selectedText && <div style={{ ...muted, whiteSpace: 'pre-wrap', maxHeight: 80, overflow: 'auto', marginTop: 4 }}>引用：{active.anchor.selectedText}</div>}
-              </div>
-              <div role="log" aria-live="polite" style={{ padding: 12, flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {history?.items.map(item => (
-                  <div key={item.messageId} style={{ alignSelf: item.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '94%', padding: 10, borderRadius: 10, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 13, lineHeight: 1.5, background: item.role === 'user' ? 'var(--dsh-color-surface-secondary, #e2e8f0)' : 'var(--dsh-color-surface-tertiary, #f1f5f9)' }}>
-                    {item.text}
-                    {item.role === 'assistant' && (
-                      <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
-                        <button type="button" style={button} onClick={() => copyText(item.text)}>复制回答</button>
-                        <button type="button" style={button} onClick={() => {
-                          if (!bringBack(sessionId, active.title, item.text)) {
-                            setError('主会话编辑器暂不可用，请稍后再试')
-                          } else {
-                            setError(undefined)
-                          }
-                        }} title="仅在主会话输入框插入引用，不自动发送">引用到主对话草稿</button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {!history && <div style={spinner}>正在加载侧聊历史……</div>}
-                {history?.busy && <div style={spinner}>正在生成回答……</div>}
-              </div>
-              {active.status === 'active' && (
-                <div style={{ padding: 10, borderTop: '1px solid var(--dsh-color-border, #cbd5e1)', display: 'grid', gap: 8 }}>
-                  <textarea aria-label="旁注问题" rows={3} value={draft} disabled={busy} placeholder="继续追问……" onChange={e => setDraft(e.target.value)} onKeyDown={e => {
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send() }
-                  }} style={{ fontFamily: 'inherit', resize: 'vertical', padding: 9, border: '1px solid #94a3b8', borderRadius: 8, color: 'inherit', background: 'inherit', fontSize: 13 }} />
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                    <button style={button} disabled={busy} onClick={() => void invoke(() => api.cancel(sessionId, active.id))}>停止</button>
-                    <button style={button} disabled={busy || !draft.trim()} onClick={send}>发送 Ctrl+Enter</button>
-                  </div>
-                </div>
-              )}
-              <footer style={{ padding: '8px 12px', borderTop: '1px solid var(--dsh-color-border, #cbd5e1)', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {active.status === 'archived' && <button style={button} onClick={() => change('restore')}>恢复</button>}
-                {active.status === 'active' && <button style={button} disabled={busy} onClick={summarize}>整理侧聊摘要</button>}
-                {active.status === 'active' && <button style={button} onClick={() => change('archive')}>归档</button>}
-                {active.status !== 'promoted' && <button style={button} onClick={() => change('promote')}>升格正式对话</button>}
-                <button style={button} onClick={() => { setActiveId(undefined); setHistory(undefined) }}>返回目录</button>
-              </footer>
-            </>
-          )}
-          {error && <div role="alert" style={{ color: '#b91c1c', fontSize: 12, padding: '7px 12px' }}>{error}</div>}
-        </section>
+            <input className="sc-field" aria-label="搜索侧聊"
+              placeholder="搜索引用内容或回答..." value={search}
+              onChange={event => setSearch(event.target.value)} />
+          </div>
+          <div style={{ padding: '0 9px 16px' }}>
+            {filtered.length === 0 && <p className="sc-empty">{query ? '没有找到匹配内容' : '选中回复中的文字，或点击消息下方的侧聊图标，即可开始。'}</p>}
+            {filtered.map(note => (
+              <button type="button" key={note.id} className="sc-item"
+                data-active={activeId === note.id} onClick={() => openNote(note.id)}>
+                <div className="sc-item-title">{note.anchor.selectedText || note.title}</div>
+                <div className="sc-item-preview">{state.previews[note.id] || '暂无回答'}</div>
+                <div className="sc-status" style={{ marginTop: 5 }}>{statusOf(note)}</div>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
-    </div>
+
+      {view === 'create' && (
+        <>
+          <div className="sc-scroll sc-padded" style={{ display: 'grid', alignContent: 'start', gap: 14 }}>
+            <div>
+              <div className="sc-section-label">引用自主对话</div>
+              <blockquote className="sc-quote">{request?.selectedText || '整条 AI 回复'}</blockquote>
+            </div>
+            <div>
+              <label htmlFor="sc-context-mode" className="sc-section-label" style={{ display: 'block' }}>上下文范围</label>
+              <select id="sc-context-mode" value={mode} className="sc-field"
+                onChange={event => setMode(event.target.value as 'light' | 'fork')}>
+                <option value="light">轻量 · 围绕引用讨论</option>
+                <option value="fork">继承 · 带入此前主对话</option>
+              </select>
+            </div>
+            <p className="sc-muted" style={{ margin: 0 }}>侧聊会独立保存，不会向主对话自动发送内容。</p>
+          </div>
+          <div className="sc-composer">
+            <textarea autoFocus className="sc-field sc-textarea" aria-label="新侧聊问题"
+              placeholder="想就这段内容问什么？" rows={4} value={draft} disabled={busy}
+              onChange={event => setDraft(event.target.value)}
+              onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); create() } }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="sc-btn sc-btn-primary" disabled={!draft.trim() || busy} onClick={create}>
+                <SideChatIcon name="send" /> 发起侧聊
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {view === 'thread' && active && (
+        <>
+          <div className="sc-message-header">
+            <div className="sc-status">独立对话 · {statusOf(active)}</div>
+            <blockquote className="sc-quote">{active.anchor.selectedText || '引用整条 AI 回复'}</blockquote>
+          </div>
+          <div className="sc-scroll" role="log" aria-live="polite">
+            <div className="sc-msg-list">
+              {history?.items.map(item => (
+                <div className={'sc-msg ' + (item.role === 'user' ? 'sc-msg-user' : 'sc-msg-assistant')}
+                  key={item.messageId}>
+                  <div>{item.text}</div>
+                  {item.role === 'assistant' && (
+                    <div className="sc-msg-actions">
+                      <SideChatIconButton label={copied === item.messageId ? '已复制' : '复制回答'}
+                        icon={copied === item.messageId ? 'check' : 'copy'}
+                        onClick={() => copy(item.messageId, item.text)} />
+                      <SideChatIconButton label="引用到主对话草稿（不会自动发送）"
+                        icon="quote" onClick={() => quote(item.text)} />
+                    </div>
+                  )}
+                </div>
+              ))}
+              {!history && <div className="sc-empty">正在读取对话记录…</div>}
+              {history?.busy && <div className="sc-status">正在生成回答…</div>}
+              {history?.items.length === 0 && !history.busy &&
+                <div className="sc-empty">这是一个新的侧聊，输入问题即可开始。</div>}
+            </div>
+          </div>
+          {active.status === 'active' ? (
+            <div className="sc-composer">
+              <textarea className="sc-field sc-textarea" rows={2}
+                aria-label="继续侧聊" placeholder="继续追问…（Ctrl/⌘ + Enter 发送）"
+                disabled={busy} value={draft}
+                onChange={event => setDraft(event.target.value)}
+                onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); send() } }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="sc-status">与主对话相互隔离</span>
+                <div className="sc-toolbar">
+                  {history?.busy && <SideChatIconButton label="停止生成" icon="stop"
+                    disabled={busy} onClick={() => void invoke(() => api.cancel(sessionId, active.id))} />}
+                  <button className="sc-btn sc-btn-primary" disabled={busy || !draft.trim()} onClick={send}>
+                    <SideChatIcon name="send" /> 发送
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : <div className="sc-composer sc-status">本侧聊已{active.status === 'promoted' ? '升格为正式对话' : '归档'}。{active.status === 'archived' ? '恢复后可继续追问。' : '可从正式会话列表继续。'}</div>}
+        </>
+      )}
+      {view === 'thread' && !active && <div className="sc-empty">侧聊不存在或已被删除，请返回目录。</div>}
+      {notice && <div className="sc-status" role="status" style={{ padding: '7px 14px' }}>{notice}</div>}
+      {error && <div className="sc-alert" role="alert">{error}</div>}
+    </section>
   )
 }

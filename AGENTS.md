@@ -30,3 +30,11 @@ This repository implements **SideNotes**, a DeepSeek Harness Web plugin. Read th
 ## Current caveat
 
 Host/Client plugin entry points are **stubs**. The Host Coordinator and injectable file-backed runtime exist and are tested against a fake Session port, but the official DSH Agent bridge and owner-only Connection RPC are now coded, but they have not passed a full DSH package build or mounted runtime integration. There is still no Web UI or streaming client; the read-only guard is implemented but not yet exercised against real tools. Do not expose the Coordinator to a browser until real Host authorization and tool restrictions are implemented.
+
+## Side Chat UI rules (dev.3)
+
+- The product is **Side Chat · 旁敲侧击**, and the visible action is **侧聊**. Do not regress to the user-visible “旁注”.
+- Follow DSH design tokens (`--dsw-*`), native UI-primitives icons and Tooltip. Avoid hard-coded color palettes and competing fixed right-edge panels.
+- DSH's Quote selection action owns selection timing. Never watch `selectionchange` to continuously mount/move Side Chat controls during a drag.
+- Keep the Side Chat companion dot rail beside the original Turn Navigator and the conversation itself in the native right Sidebar tab.
+- Source markers must not change chat messages, clone markdown, or silently modify the main Session. Jump highlighting is temporary and scope-specific.

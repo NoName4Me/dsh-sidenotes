@@ -2,6 +2,7 @@ export interface SideNoteIntent {
   readonly sessionId: string
   readonly messageId: string
   readonly selectedText?: string
+  readonly existingNoteId?: string
   readonly sequence: number
 }
 
@@ -17,6 +18,11 @@ export class SideNoteIntentStore {
       ...(selectedText ? { selectedText: selectedText.slice(0, 8000) } : {}),
       sequence: ++this.sequence,
     }
+    for (const fn of this.listeners) fn()
+  }
+
+  openExisting(sessionId: string, existingNoteId: string): void {
+    this.current = { sessionId, messageId: '', existingNoteId, sequence: ++this.sequence }
     for (const fn of this.listeners) fn()
   }
 

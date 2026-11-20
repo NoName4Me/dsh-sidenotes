@@ -17,7 +17,7 @@ export default defineConfig([
     // Emit CJS in the official window.__ModuleLoader__.load closure.
     format: 'cjs',
     platform: 'browser',
-    external: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client'],
+    external: ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'],
     outputOptions: {
       entryFileNames: 'client.js',
       codeSplitting: false,

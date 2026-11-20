@@ -16,7 +16,7 @@ export function createBringBack(ctx: Context) {
     if (!binding) return false
     const input = conversation.input.for(binding.ctx)
     const quote = [
-      'SideNotes · ' + title.slice(0, 120),
+      '旁敲侧击 · ' + title.slice(0, 120),
       text.slice(0, 16_000),
     ].join('\n\n')
     return input.insertQuote(quote)

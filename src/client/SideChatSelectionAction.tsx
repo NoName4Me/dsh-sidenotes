@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { SideNoteIntentStore } from './intent.ts'
@@ -16,98 +17,118 @@ interface SelectionTarget {
   readonly sessionId: string
   readonly messageId: string
   readonly text: string
-  readonly left: number
-  readonly top: number
+  /** The existing Quote action's own popup: no competing floating position. */
+  readonly host: HTMLElement
 }
 
-/** A separate selection affordance that does not take over DSH's Quote popup. */
+function selectedTarget(currentSession: CurrentSessionSource): Omit<SelectionTarget, 'host'> | null {
+  const sessionId = currentSession.getSnapshot().key
+  const selection = document.getSelection()
+  if (!sessionId || !selection || selection.isCollapsed || selection.rangeCount !== 1) return null
+  const text = selection.toString().trim()
+  if (!text || text.length > 8000) return null
+  const range = selection.getRangeAt(0)
+  const sourceOf = (node: Node) =>
+    (node instanceof Element ? node : node.parentElement)?.closest<HTMLElement>('[data-text-interaction-source]')
+  const source = sourceOf(range.startContainer)
+  if (!source || source !== sourceOf(range.endContainer)) return null
+  const row = source.closest<HTMLElement>('[data-chat-turn]')
+  const flow = source.closest<HTMLElement>('[data-chat-flow]')
+  if (!row || !flow || !row.dataset.chatTurn) return null
+  const messageAnchor = Array.from(flow.querySelectorAll<HTMLElement>('[data-sidenotes-anchor]'))
+    .find(button => button.closest<HTMLElement>('[data-chat-turn]')?.dataset.chatTurn === row.dataset.chatTurn)
+  if (!messageAnchor?.dataset.sidenotesAnchor) return null
+  return { sessionId, messageId: messageAnchor.dataset.sidenotesAnchor, text }
+}
+
+function quoteCapsule(): HTMLElement | null {
+  // The upstream text-interaction seat already owns positioning and timing.
+  // Portaling into its button wrapper adds a control to the same capsule,
+  // without replacing the Quote action or changing selection geometry.
+  for (const surface of Array.from(document.querySelectorAll<HTMLElement>('[data-text-interaction-surface]'))) {
+    if (surface.style.visibility === 'hidden') continue
+    const native = surface.querySelector<HTMLButtonElement>('button:not([data-side-chat-selection-button])')
+    if (native?.parentElement) return native.parentElement
+  }
+  return null
+}
+
+/**
+ * DSH only offers the selection action after pointerup / completed Shift
+ * selection. Do not listen to selectionchange: it fires on *every* drag frame,
+ * and updating state there previously made the selection/capsule flicker.
+ *
+ * As DSH currently exposes a keyed (exclusive) Quote seat rather than a list
+ * of action additions, this contribution portals a sibling into the native
+ * Quote capsule. No builtin handler is replaced, intercepted or prevented.
+ */
 export function SideChatSelectionAction({
   intent, currentSession, openSideChat,
 }: SelectionActionProps) {
   const [target, setTarget] = useState<SelectionTarget | null>(null)
   useEffect(() => {
     let frame: number | undefined
-    const reset = (): void => setTarget(null)
-    const inspect = (): void => {
-      const sessionId = currentSession.getSnapshot().key
-      const selection = document.getSelection()
-      if (!sessionId || !selection || selection.isCollapsed || selection.rangeCount !== 1) {
-        reset(); return
+    let generation = 0
+    const clear = () => { generation++; setTarget(null) }
+    const afterGesture = () => {
+      const id = ++generation
+      const selected = selectedTarget(currentSession)
+      if (!selected) { setTarget(null); return }
+      let attempts = 0
+      const locate = () => {
+        if (generation !== id) return
+        const host = quoteCapsule()
+        if (host) {
+          setTarget({ ...selected, host })
+          return
+        }
+        if (++attempts < 5) frame = window.requestAnimationFrame(locate)
       }
-      const text = selection.toString().trim()
-      if (!text || text.length > 8000) { reset(); return }
-      const start = selection.anchorNode
-      const end = selection.focusNode
-      const element = start instanceof Element ? start : start?.parentElement
-      const source = element?.closest<HTMLElement>('[data-text-interaction-source]')
-      if (!source || !end || !source.contains(end)) { reset(); return }
-      const flowRow = source.closest<HTMLElement>('[data-chat-flow-kind]')
-      const flow = flowRow?.closest<HTMLElement>('[data-chat-flow]')
-      const turn = flowRow?.dataset.chatTurn
-      if (!flow || turn === undefined) { reset(); return }
-      const anchor = Array.from(flow.querySelectorAll<HTMLElement>('[data-sidenotes-anchor]'))
-        .find(node => node.closest<HTMLElement>('[data-chat-turn]')?.dataset.chatTurn === turn)
-      if (!anchor?.dataset.sidenotesAnchor) { reset(); return }
-      const rect = selection.getRangeAt(0).getBoundingClientRect()
-      if (rect.width <= 0 || rect.height <= 0 ||
-        rect.bottom < 0 || rect.top > window.innerHeight) { reset(); return }
-      // DSH Quote popup appears above the selection; Side Chat sits beside it.
-      const left = Math.max(8, Math.min(window.innerWidth - 88, rect.right + 10))
-      const top = Math.max(8, Math.min(window.innerHeight - 38, rect.top))
-      setTarget({ sessionId, messageId: anchor.dataset.sidenotesAnchor, text, left, top })
+      frame = window.requestAnimationFrame(locate)
     }
-    const schedule = (): void => {
-      if (frame !== undefined) window.cancelAnimationFrame(frame)
-      frame = window.requestAnimationFrame(() => {
-        frame = undefined
-        inspect()
-      })
+    const pointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Element &&
+        event.target.closest('[data-side-chat-selection-button]')) return
+      clear()
     }
-    const pointerUp = (event: PointerEvent): void => {
-      if (event.target instanceof Element && event.target.closest('[data-side-chat-selection-button]')) return
-      schedule()
+    const pointerUp = (event: PointerEvent) => {
+      if (event.button === 0 && !(event.target instanceof Element &&
+        event.target.closest('[data-side-chat-selection-button]'))) afterGesture()
     }
-    const keyUp = (event: KeyboardEvent): void => {
-      if (event.key === 'Shift' || event.shiftKey) schedule()
+    const keyUp = (event: KeyboardEvent) => {
+      if (event.key === 'Shift' || !event.shiftKey) afterGesture()
     }
+    document.addEventListener('pointerdown', pointerDown, true)
     document.addEventListener('pointerup', pointerUp)
     document.addEventListener('keyup', keyUp)
-    document.addEventListener('selectionchange', schedule)
-    window.addEventListener('scroll', reset, true)
-    window.addEventListener('resize', reset)
-    const unsubscribe = currentSession.subscribe(reset)
+    window.addEventListener('blur', clear)
+    const offSession = currentSession.subscribe(clear)
     return () => {
       if (frame !== undefined) window.cancelAnimationFrame(frame)
+      document.removeEventListener('pointerdown', pointerDown, true)
       document.removeEventListener('pointerup', pointerUp)
       document.removeEventListener('keyup', keyUp)
-      document.removeEventListener('selectionchange', schedule)
-      window.removeEventListener('scroll', reset, true)
-      window.removeEventListener('resize', reset)
-      unsubscribe()
+      window.removeEventListener('blur', clear)
+      offSession()
     }
   }, [currentSession])
+  useEffect(() => {
+    if (!target) return
+    target.host.classList.add('sc-selection-capsule')
+    return () => target.host.classList.remove('sc-selection-capsule')
+  }, [target])
 
-  if (!target) return null
-  return (
-    <button type="button" data-side-chat-selection-button
-      title="就选中的内容发起独立侧聊"
-      aria-label="侧聊：就选中的内容发起侧边对话"
+  if (!target || !target.host.isConnected) return null
+  return createPortal(
+    <button type="button" className="sc-selection-action" data-side-chat-selection-button
+      aria-label="侧聊：就选中内容发起侧边对话"
       onPointerDown={event => event.preventDefault()}
       onClick={() => {
         intent.open(target.sessionId, target.messageId, target.text)
         setTarget(null)
+        document.getSelection()?.removeAllRanges()
         openSideChat()
-      }}
-      style={{
-        position: 'fixed', left: target.left, top: target.top,
-        zIndex: 100, pointerEvents: 'auto',
-        color: 'var(--dsw-alias-label-primary, #111827)',
-        background: 'var(--dsw-alias-button-floating-fill, #fff)',
-        border: '1px solid var(--dsw-alias-border-l1, #cbd5e1)',
-        borderRadius: 9, boxShadow: '0 3px 14px #0002',
-        cursor: 'pointer', padding: '6px 10px', fontSize: 12,
-      }}>
-      侧聊
-    </button>
+      }}>侧聊</button>,
+    target.host,
   )
 }

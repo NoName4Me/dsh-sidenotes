@@ -1,6 +1,6 @@
 {
   "id": "dsh-external/dsh-sidenotes",
-  "version": "0.1.0-dev.2",
+  "version": "0.1.0-dev.3",
   "main": "./lib/index.mjs",
   "description": "Side Chat · 旁敲侧击 — anchored side conversations in DeepSeek Harness.",
   "engines": {
