@@ -87,27 +87,26 @@ export const sideChatStyles = `
   white-space: pre-wrap; overflow-wrap: anywhere; max-height: 112px; overflow: auto;
 }
 .sc-composer { padding: 10px 12px 12px; border-top: 1px solid var(--dsw-alias-border-l2); flex: none; }
-.sc-composer-card {
-  display: flex; flex-direction: column; gap: 2px; padding: 9px 10px 8px;
-  border-radius: var(--dsw-radius-panel);
-  background: var(--dsw-specific-input-major);
-  box-shadow: var(--dsw-elevation-soft);
-  --dsw-elevation-stroke-color: var(--dsw-alias-border-l2);
-}
+.sc-input-wrap { position: relative; width: 100%; }
 .sc-composer-input {
-  display: block; width: 100%; box-sizing: border-box; resize: vertical;
-  border: 0; outline: 0; background: transparent; color: var(--dsw-alias-label-primary);
-  min-height: 42px; max-height: 160px; padding: 5px 4px 1px;
+  display: block; box-sizing: border-box; width: 100%; height: auto; min-height: 70px;
+  max-height: 180px; resize: none; overflow-y: hidden;
+  padding: 11px 46px 37px 13px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-panel);
+  outline: none; background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
   font: var(--dsw-font-sm-14); line-height: 1.55;
 }
+.sc-composer-input:focus { border-color: var(--dsw-alias-border-l4); }
 .sc-composer-input::placeholder { color: var(--dsw-alias-label-caption); }
-.sc-composer-actions { display: flex; justify-content: flex-end; align-items: center; min-height: 30px; }
+.sc-send-anchor { position: absolute; right: 10px; bottom: 9px; display: flex; align-items: center; }
 .sc-root .sc-send {
-  display: grid; place-items: center; width: 29px; height: 29px; border: 0;
-  border-radius: 999px; background: var(--dsw-alias-label-primary);
-  color: var(--dsw-alias-bg-layer-1); cursor: pointer; padding: 0;
+  display: grid; place-items: center; width: 30px; height: 30px;
+  border: 0; border-radius: 50%; padding: 0; cursor: pointer;
+  background: var(--dsw-alias-label-primary); color: var(--dsw-alias-bg-layer-1);
 }
-.sc-root .sc-send svg { width: 16px; height: 16px; }
+.sc-root .sc-send svg { display: block; width: 16px; height: 16px; }
 .sc-root .sc-send:hover:not(:disabled) { opacity: .86; }
 .sc-root .sc-send:disabled { opacity: .35; cursor: default; }
 .sc-root .sc-send:focus-visible { outline: 2px solid var(--dsw-focus-ring-color); outline-offset: 2px; }

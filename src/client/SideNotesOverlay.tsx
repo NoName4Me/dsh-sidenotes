@@ -4,7 +4,8 @@ import type { SideNoteHistory } from '../host/rpc.ts'
 import type { SideNotesApi } from './api.ts'
 import type { SideChatCatalog } from './catalog.ts'
 import type { SideNoteIntent, SideNoteIntentStore } from './intent.ts'
-import { SideChatIcon, SideChatIconButton } from './Icon.tsx'
+import { SideChatIconButton } from './Icon.tsx'
+import { SideChatComposer } from './SideChatComposer.tsx'
 import { jumpToSource, sourceExcerpt } from './source-anchor.ts'
 
 interface CurrentSessionSource {
@@ -242,20 +243,8 @@ export function SideNotesOverlay({
               </select>
             </div>
           </div>
-          <div className="sc-composer">
-            <div className="sc-composer-card">
-              <textarea autoFocus className="sc-composer-input" aria-label="新侧边聊问题"
-                placeholder="想就这段内容问什么？" rows={3} value={draft} disabled={busy}
-                onChange={event => setDraft(event.target.value)}
-                onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); create() } }} />
-              <div className="sc-composer-actions">
-                <button className="sc-send" type="button" aria-label="发送侧边聊"
-                  title="发送 (Ctrl/⌘ + Enter)" disabled={!draft.trim() || busy} onClick={create}>
-                  <SideChatIcon name="send" />
-                </button>
-              </div>
-            </div>
-          </div>
+          <SideChatComposer value={draft} onChange={setDraft} onSend={create}
+            busy={busy} autoFocus placeholder="想就这段内容问什么？" />
         </>
       )}
 
@@ -288,24 +277,9 @@ export function SideNotesOverlay({
             </div>
           </div>
           {active.status === 'active' ? (
-            <div className="sc-composer">
-              <div className="sc-composer-card">
-                <textarea className="sc-composer-input" rows={2} aria-label="继续侧边聊"
-                  placeholder="继续追问…" disabled={busy} value={draft}
-                  onChange={event => setDraft(event.target.value)}
-                  onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); send() } }} />
-                <div className="sc-composer-actions">
-                  <button className="sc-send" type="button"
-                    title={history?.busy ? '停止生成' : '发送 (Ctrl/⌘ + Enter)'}
-                    aria-label={history?.busy ? '停止生成' : '发送侧边聊'}
-                    disabled={busy || (!history?.busy && !draft.trim())}
-                    onClick={history?.busy
-                      ? () => void invoke(() => api.cancel(sessionId, active.id)) : send}>
-                    <SideChatIcon name={history?.busy ? 'stop' : 'send'} />
-                  </button>
-                </div>
-              </div>
-            </div>
+            <SideChatComposer value={draft} onChange={setDraft} onSend={send}
+              onStop={() => void invoke(() => api.cancel(sessionId, active.id))}
+              busy={busy} generating={history?.busy === true} placeholder="继续追问…" />
           ) : <div className="sc-composer sc-status">{active.status === 'archived'
             ? '已归档，可通过顶部操作恢复。' : '已升格，请在正式会话中继续。'}</div>}
         </>

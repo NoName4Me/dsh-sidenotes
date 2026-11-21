@@ -10,11 +10,16 @@ export function SideChatIcon({ name }: { name: SideChatGlyph }): ReactNode {
   if (name === 'branch') return <IconBranchOutlineRegular />
   if (name === 'send') return <IconTriangleRightFillRegular />
   if (name === 'side-chat') return (
+    // Two overlapping bubbles, with the small conversation painted last and
+    // fully occluding the main bubble, just like the Plugin Manager artwork.
     <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true" fill="none"
-      stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 4.5h10.5a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3H9l-4.2 3v-3A3 3 0 0 1 2 12.5v-5a3 3 0 0 1 2-3Z" />
-      <path d="M12 15.5v1a3 3 0 0 0 3 3h3l3 2v-7a3 3 0 0 0-2-2.8" />
-      <path d="M6 9h7" />
+      strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5.5 3.5H15a3.5 3.5 0 0 1 3.5 3.5v5a3.5 3.5 0 0 1-3.5 3.5h-5l-4 3v-3A3.5 3.5 0 0 1 2 12V7a3.5 3.5 0 0 1 3.5-3.5Z"
+        stroke="currentColor" strokeWidth="1.75"/>
+      <path d="M6.5 8h7" stroke="currentColor" strokeWidth="1.75"/>
+      <path d="M14 13.5h6a3 3 0 0 1 3 3v2.4a3 3 0 0 1-3 3h-2l-2.3 1.7v-1.7H14a3 3 0 0 1-3-3v-2.4a3 3 0 0 1 3-3Z"
+        fill="currentColor" stroke="var(--dsw-alias-bg-layer-1)" strokeWidth="1.45"/>
+      <path d="M14.4 17.7h5" stroke="var(--dsw-alias-bg-layer-1)" strokeWidth="1.5"/>
     </svg>
   )
   const shared = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8,
