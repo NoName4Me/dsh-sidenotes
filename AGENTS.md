@@ -1,6 +1,6 @@
 # Instructions for coding agents
 
-This repository implements **SideNotes**, a DeepSeek Harness Web plugin. Read these files before changing implementation:
+This repository implements **SideChat**, a DeepSeek Harness Web plugin. Read these files before changing implementation:
 
 1. [docs/design.md](docs/design.md) — product contract, context isolation and safety boundaries
 2. [docs/development.md](docs/development.md) — engineering conventions and commit rules
@@ -33,7 +33,7 @@ Host/Client plugin entry points are **stubs**. The Host Coordinator and injectab
 
 ## Side Chat UI rules (dev.3)
 
-- The product is **Side Chat · 旁敲侧击**, and the visible action is **侧聊**. Do not regress to the user-visible “旁注”.
+- The product is **Side Chat · 旁敲侧击**, and the visible action is **侧聊**. Do not regress to the user-visible “侧聊”.
 - Follow DSH design tokens (`--dsw-*`), native UI-primitives icons and Tooltip. Avoid hard-coded color palettes and competing fixed right-edge panels.
 - DSH's Quote selection action owns selection timing. Never watch `selectionchange` to continuously mount/move Side Chat controls during a drag.
 - Keep the Side Chat companion dot rail beside the original Turn Navigator and the conversation itself in the native right Sidebar tab.
@@ -42,3 +42,7 @@ Host/Client plugin entry points are **stubs**. The Host Coordinator and injectab
 ## Dev.4 interaction refinements
 
 Do not re-add the left dot rail; the right Sidebar directory is the only index. Source highlighting must resolve an assistant-step response, never the turn-tail footer. Message-edge tooltips show source quote and first user question. Do not add redundant success notices on source jump or quote insertion. The send/stop control occupies one dark 29px circular button in the composer card. Export plugin icon and en/zh locale metadata, and keep packed resources in sync.
+
+## Naming and distribution
+
+The public npm package, Cordis package, DSH plugin ID, Client loader ID, and repository should use `dsh-sidechat` consistently. The end-user product is **旁敲侧击 / Side Chat**, and the action button is **侧聊**. The only intentional legacy `sidenotes` identifiers are the previously persisted `state/sidenotes.json` path and old Session IDs read from that persisted record. Publish only to npmjs.org; do not reintroduce the GitHub Packages publishing flow.

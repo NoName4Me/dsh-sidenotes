@@ -1,5 +1,5 @@
-import { SideNoteError } from '../domain/errors.ts'
-import type { SideNote } from '../domain/types.ts'
+import { SideChatError } from '../domain/errors.ts'
+import type { SideChat } from '../domain/types.ts'
 import type { SideSessionPort } from './coordinator.ts'
 
 export interface ObservedEvent {
@@ -24,7 +24,7 @@ export interface SideAgentHandle {
 export interface CreateSideAgent {
   sessionId: string
   cwd?: string
-  /** SideNotes context supplied as durable, child-local next-step input. */
+  /** SideChat context supplied as durable, child-local next-step input. */
   initialContext?: string
   /** Fork: exact parent log cut with synthetic closers created by DSH. */
   fork?: {
@@ -65,16 +65,16 @@ function messageId(event: ObservedEvent): string | undefined {
   return undefined
 }
 
-function noteSessionId(noteId: string): string {
+function noteSessionId(noteId: string, existingSessionId?: string | null): string {
   // The note ID is created by the Host. A deterministic ID makes a creation
   // that succeeded before metadata binding retryable after a process restart.
-  return 'session-sidenotes-' + noteId
+  return existingSessionId ?? 'session-sidechat-' + noteId
 }
 
-function sourceContext(note: SideNote): string {
+function sourceContext(note: SideChat): string {
   const selected = note.anchor.selectedText?.trim()
   return [
-    'SideNotes: This is an independent side conversation.',
+    'SideChat: This is an independent side conversation.',
     'The parent conversation must not be modified or continued.',
     'Answer follow-up questions using only the available context.',
     'Topic: ' + note.title,
@@ -82,20 +82,20 @@ function sourceContext(note: SideNote): string {
   ].join('\n\n')
 }
 
-function forkBoundary(events: readonly ObservedEvent[], note: SideNote): number {
+function forkBoundary(events: readonly ObservedEvent[], note: SideChat): number {
   const at = events.findIndex(event =>
     messageId(event) === note.anchor.messageId &&
     (note.anchor.eventSeq === undefined || event.seq === note.anchor.eventSeq),
   )
   if (at < 0) {
-    throw new SideNoteError('INVALID_INPUT', 'anchor message does not exist in parent session')
+    throw new SideChatError('INVALID_INPUT', 'anchor message does not exist in parent session')
   }
   const completed = events.slice(at).find(event => event.type === 'turn/end')
   if (!completed) {
-    throw new SideNoteError('INVALID_STATE', 'anchor turn has not completed')
+    throw new SideChatError('INVALID_STATE', 'anchor turn has not completed')
   }
   if (!Number.isSafeInteger(completed.seq) || completed.seq < 0) {
-    throw new SideNoteError('INVALID_STATE', 'invalid source event boundary')
+    throw new SideChatError('INVALID_STATE', 'invalid source event boundary')
   }
   return completed.seq
 }
@@ -109,7 +109,7 @@ function forkBoundary(events: readonly ObservedEvent[], note: SideNote): number 
  * - Promotion unarchives the same Session, keeping its history unchanged.
  *
  * A browser must never call this class directly; use an authenticated Host API
- * and SideNoteCoordinator authorization.
+ * and SideChatCoordinator authorization.
  */
 export class DshSideSessionAdapter implements SideSessionPort {
   private readonly handles = new Map<string, SideAgentHandle>()
@@ -126,13 +126,13 @@ export class DshSideSessionAdapter implements SideSessionPort {
     this.runtime = runtime
   }
 
-  async ensure(note: SideNote, policy: { readOnly: true }): Promise<{ sessionId: string }> {
-    if (policy.readOnly !== true) throw new SideNoteError('INVALID_STATE', 'side agent must be read-only')
-    const sessionId = noteSessionId(note.id)
+  async ensure(note: SideChat, policy: { readOnly: true }): Promise<{ sessionId: string }> {
+    if (policy.readOnly !== true) throw new SideChatError('INVALID_STATE', 'side agent must be read-only')
+    const sessionId = noteSessionId(note.id, note.childSessionId)
     return this.once('init:' + sessionId, async () => {
       this.assertOpen()
       if (note.childSessionId && note.childSessionId !== sessionId) {
-        throw new SideNoteError('CONFLICT', 'note is bound to an unexpected Session')
+        throw new SideChatError('CONFLICT', 'note is bound to an unexpected Session')
       }
       // If a retry follows a successful create, a live handle or a durable
       // observation recovers the *same* child instead of making an orphan.
@@ -146,7 +146,7 @@ export class DshSideSessionAdapter implements SideSessionPort {
         const existing = await this.runtime.observe(sessionId)
         try {
           if (existing.header.id !== sessionId) {
-            throw new SideNoteError('CONFLICT', 'Session identity mismatch')
+            throw new SideChatError('CONFLICT', 'Session identity mismatch')
           }
           persisted = true
         } finally {
@@ -234,8 +234,8 @@ export class DshSideSessionAdapter implements SideSessionPort {
     handle.cancel()
   }
 
-  async promote(note: SideNote): Promise<{ sessionId: string }> {
-    const sessionId = noteSessionId(note.id)
+  async promote(note: SideChat): Promise<{ sessionId: string }> {
+    const sessionId = noteSessionId(note.id, note.childSessionId)
     this.assertKnown(sessionId)
     return this.once('promote:' + sessionId, async () => {
       const handle = await this.live(sessionId)
@@ -290,12 +290,12 @@ export class DshSideSessionAdapter implements SideSessionPort {
     if (!this.children.has(sessionId) && ![...this.handles.keys()].includes(sessionId)) {
       // New plugin instances can recover a bound Session only after authorized
       // note membership has been checked and explicitly hydrated.
-      throw new SideNoteError('NOT_FOUND', 'side Session is not owned by this plugin')
+      throw new SideChatError('NOT_FOUND', 'side Session is not owned by this plugin')
     }
   }
 
   private assertOpen(): void {
-    if (this.closed) throw new SideNoteError('INVALID_STATE', 'side Session adapter is disposed')
+    if (this.closed) throw new SideChatError('INVALID_STATE', 'side Session adapter is disposed')
   }
 
   private serialize<T>(key: string, work: () => Promise<T>): Promise<T> {

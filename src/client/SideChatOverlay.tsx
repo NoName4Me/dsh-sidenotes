@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
-import type { SideNote } from '../domain/types.ts'
-import type { SideNoteHistory } from '../host/rpc.ts'
-import type { SideNotesApi } from './api.ts'
+import type { SideChat } from '../domain/types.ts'
+import type { SideChatHistory } from '../host/rpc.ts'
+import type { SideChatApi } from './api.ts'
 import type { SideChatCatalog } from './catalog.ts'
-import type { SideNoteIntent, SideNoteIntentStore } from './intent.ts'
+import type { SideChatIntent, SideChatIntentStore } from './intent.ts'
 import { SideChatIconButton } from './Icon.tsx'
 import { SideChatComposer } from './SideChatComposer.tsx'
 import { jumpToSource, sourceExcerpt } from './source-anchor.ts'
@@ -12,34 +12,34 @@ interface CurrentSessionSource {
   getSnapshot(): { key?: string }
   subscribe(listener: () => void): () => void
 }
-interface SideNotesOverlayProps {
-  readonly api: SideNotesApi
+interface SideChatOverlayProps {
+  readonly api: SideChatApi
   readonly catalog: SideChatCatalog
   readonly bringBack: (parentSessionId: string, title: string, text: string) => boolean
-  readonly intent: SideNoteIntentStore
+  readonly intent: SideChatIntentStore
   readonly currentSession: CurrentSessionSource
 }
 type View = 'directory' | 'create' | 'thread'
 
-function statusOf(note: SideNote): string {
+function statusOf(note: SideChat): string {
   if (note.status === 'archived') return '已归档'
   if (note.status === 'promoted') return '已升格'
   return note.mode === 'fork' ? '继承上下文' : '独立上下文'
 }
 
 /** Native right-Sidebar page: one screen at a time, never a second floating rail. */
-export function SideNotesOverlay({
+export function SideChatOverlay({
   api, catalog, bringBack, intent, currentSession,
-}: SideNotesOverlayProps) {
+}: SideChatOverlayProps) {
   const state = useSyncExternalStore(catalog.subscribe, catalog.getSnapshot)
   const [sessionId, setSessionId] = useState<string | undefined>(() => currentSession.getSnapshot().key)
-  const [request, setRequest] = useState<SideNoteIntent | undefined>(() => intent.getSnapshot())
+  const [request, setRequest] = useState<SideChatIntent | undefined>(() => intent.getSnapshot())
   const [view, setView] = useState<View>('directory')
   const [activeId, setActiveId] = useState<string | undefined>()
   const [mode, setMode] = useState<'light' | 'fork'>('light')
   const [draft, setDraft] = useState('')
   const [search, setSearch] = useState('')
-  const [history, setHistory] = useState<SideNoteHistory | undefined>()
+  const [history, setHistory] = useState<SideChatHistory | undefined>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | undefined>()
   const [copied, setCopied] = useState<string | undefined>()
@@ -97,9 +97,9 @@ export function SideNotesOverlay({
   }, [api, catalog, sessionId, activeId, view])
 
   const notes = state.sessionId === sessionId ? state.notes : []
-  const displayTitle = (note: SideNote): string =>
-    /^(New side note|New side chat)$/u.test(note.title)
-      ? sourceExcerpt(note.anchor.messageId) ?? '侧边聊' : note.title
+  const displayTitle = (note: SideChat): string =>
+    /^(New side chat|New side chat)$/u.test(note.title)
+      ? sourceExcerpt(note.anchor.messageId) ?? '侧聊' : note.title
   const active = notes.find(note => note.id === activeId)
   const query = search.trim().toLowerCase()
   const filtered = notes.filter(note => {

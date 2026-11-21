@@ -1,2 +1,2 @@
-/** DSH Connection logical channel for SideNotes. */
-export const SIDENOTES_CHANNEL = '/sidenotes'
+/** DSH Connection logical channel for SideChat. */
+export const SIDECHAT_CHANNEL = '/sidechat'

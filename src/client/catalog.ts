@@ -1,10 +1,10 @@
-import type { SideNote } from '../domain/types.ts'
-import type { SideNotesApi } from './api.ts'
-import type { SideNoteHistory } from '../host/rpc.ts'
+import type { SideChat } from '../domain/types.ts'
+import type { SideChatApi } from './api.ts'
+import type { SideChatHistory } from '../host/rpc.ts'
 
 export interface CatalogSnapshot {
   readonly sessionId: string | undefined
-  readonly notes: readonly SideNote[]
+  readonly notes: readonly SideChat[]
   readonly previews: Readonly<Record<string, string>>
   readonly questions: Readonly<Record<string, string>>
   readonly activeId: string | undefined
@@ -16,7 +16,7 @@ export class SideChatCatalog {
   private readonly listeners = new Set<() => void>()
   private listRequest: Promise<void> | undefined
   private readonly previewsInFlight = new Set<string>()
-  constructor(private readonly api: SideNotesApi) {}
+  constructor(private readonly api: SideChatApi) {}
   readonly getSnapshot = (): CatalogSnapshot => this.state
   readonly subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
@@ -35,14 +35,14 @@ export class SideChatCatalog {
   setActive(activeId: string | undefined): void {
     if (this.state.activeId !== activeId) this.publish({ activeId })
   }
-  upsert(note: SideNote): void {
+  upsert(note: SideChat): void {
     if (this.state.sessionId !== note.parentSessionId) return
     this.publish({
       notes: [...this.state.notes.filter(item => item.id !== note.id), note]
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
     })
   }
-  preview(noteId: string, history: SideNoteHistory): void {
+  preview(noteId: string, history: SideChatHistory): void {
     const reply = [...history.items].reverse().find(item => item.role === 'assistant')?.text
     const question = history.items.find(item => item.role === 'user')?.text
     if (reply === this.state.previews[noteId] && question === this.state.questions[noteId]) return

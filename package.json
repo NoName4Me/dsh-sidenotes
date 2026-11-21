@@ -1,13 +1,13 @@
 {
-  "name": "dsh-sidenotes",
-  "version": "0.1.0-dev.5",
-  "private": true,
+  "name": "dsh-sidechat",
+  "version": "0.1.0-dev.6",
+  "private": false,
   "description": "Side Chat: ask focused questions alongside any conversation without interrupting it.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NoName4Me/dsh-sidenotes.git"
+    "url": "git+https://github.com/NoName4Me/dsh-sidechat.git"
   },
   "engines": {
     "node": ">=24.9.0",
@@ -113,5 +113,13 @@
     "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.5"
   },
   "packageManager": "pnpm@11.28.5",
-  "icon": "./icon.svg"
+  "icon": "./icon.svg",
+  "homepage": "https://github.com/NoName4Me/dsh-sidechat#readme",
+  "bugs": {
+    "url": "https://github.com/NoName4Me/dsh-sidechat/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  }
 }

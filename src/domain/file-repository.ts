@@ -1,19 +1,19 @@
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { SideNoteError } from './errors.ts'
-import type { SideNote, SideNoteRepository } from './types.ts'
+import { SideChatError } from './errors.ts'
+import type { SideChat, SideChatRepository } from './types.ts'
 
 interface StoredDocument {
   version: 1
-  notes: SideNote[]
+  notes: SideChat[]
 }
 
-function clone(note: SideNote): SideNote {
+function clone(note: SideChat): SideChat {
   return { ...note, anchor: { ...note.anchor } }
 }
 
-function isValidNote(value: unknown): value is SideNote {
+function isValidNote(value: unknown): value is SideChat {
   if (!value || typeof value !== 'object') return false
   const note = value as Record<string, unknown>
   const anchor = note.anchor
@@ -38,9 +38,9 @@ function isValidNote(value: unknown): value is SideNote {
  * Single-process, serialized JSON repository. Replacement is atomic on one
  * filesystem, but concurrent processes must use an external lock.
  */
-export class FileSideNoteRepository implements SideNoteRepository {
+export class FileSideChatRepository implements SideChatRepository {
   private loaded = false
-  private notes = new Map<string, SideNote>()
+  private notes = new Map<string, SideChat>()
   private pending: Promise<void> = Promise.resolve()
   private readonly path: string
 
@@ -73,17 +73,17 @@ export class FileSideNoteRepository implements SideNoteRepository {
       (doc as StoredDocument).version !== 1 ||
       !Array.isArray((doc as StoredDocument).notes)
     ) {
-      throw new SideNoteError('INVALID_STATE', 'side note storage format is invalid')
+      throw new SideChatError('INVALID_STATE', 'side chat storage format is invalid')
     }
-    const found = new Map<string, SideNote>()
+    const found = new Map<string, SideChat>()
     const requests = new Set<string>()
     for (const record of (doc as StoredDocument).notes) {
       if (!isValidNote(record)) {
-        throw new SideNoteError('INVALID_STATE', 'side note storage contains invalid records')
+        throw new SideChatError('INVALID_STATE', 'side chat storage contains invalid records')
       }
       const key = JSON.stringify([record.parentSessionId, record.clientRequestId])
       if (found.has(record.id) || requests.has(key)) {
-        throw new SideNoteError('INVALID_STATE', 'side note storage contains duplicates')
+        throw new SideChatError('INVALID_STATE', 'side chat storage contains duplicates')
       }
       found.set(record.id, clone(record))
       requests.add(key)
@@ -108,7 +108,7 @@ export class FileSideNoteRepository implements SideNoteRepository {
     }
   }
 
-  async insert(note: SideNote): Promise<SideNote> {
+  async insert(note: SideChat): Promise<SideChat> {
     return this.serial(async () => {
       await this.load()
       if (
@@ -119,7 +119,7 @@ export class FileSideNoteRepository implements SideNoteRepository {
             n.clientRequestId === note.clientRequestId,
         )
       ) {
-        throw new SideNoteError('CONFLICT', 'note id or request already exists')
+        throw new SideChatError('CONFLICT', 'note id or request already exists')
       }
       this.notes.set(note.id, clone(note))
       try {
@@ -132,7 +132,7 @@ export class FileSideNoteRepository implements SideNoteRepository {
     })
   }
 
-  async findById(id: string): Promise<SideNote | null> {
+  async findById(id: string): Promise<SideChat | null> {
     return this.serial(async () => {
       await this.load()
       const n = this.notes.get(id)
@@ -143,7 +143,7 @@ export class FileSideNoteRepository implements SideNoteRepository {
   async findByRequest(
     parentSessionId: string,
     clientRequestId: string,
-  ): Promise<SideNote | null> {
+  ): Promise<SideChat | null> {
     return this.serial(async () => {
       await this.load()
       const n = [...this.notes.values()].find(
@@ -153,7 +153,7 @@ export class FileSideNoteRepository implements SideNoteRepository {
     })
   }
 
-  async listByParent(parentSessionId: string): Promise<SideNote[]> {
+  async listByParent(parentSessionId: string): Promise<SideChat[]> {
     return this.serial(async () => {
       await this.load()
       return [...this.notes.values()]
@@ -162,7 +162,7 @@ export class FileSideNoteRepository implements SideNoteRepository {
     })
   }
 
-  async update(note: SideNote, expectedRevision: number): Promise<boolean> {
+  async update(note: SideChat, expectedRevision: number): Promise<boolean> {
     return this.serial(async () => {
       await this.load()
       const old = this.notes.get(note.id)

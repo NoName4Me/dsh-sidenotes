@@ -1,7 +1,7 @@
-import type { HistoryReader, SideNoteHistory, HistoryItem } from './rpc.ts'
-import type { SideNote } from '../domain/types.ts'
+import type { HistoryReader, SideChatHistory, HistoryItem } from './rpc.ts'
+import type { SideChat } from '../domain/types.ts'
 import type { ObservedSession, ObservedEvent } from './dsh-session-adapter.ts'
-import { SideNoteError } from '../domain/errors.ts'
+import { SideChatError } from '../domain/errors.ts'
 
 export interface HistoryRuntime {
   observe(sessionId: string): Promise<ObservedSession>
@@ -44,16 +44,16 @@ export class DshHistoryReader implements HistoryReader {
     this.runtime = runtime
   }
 
-  async read(note: SideNote): Promise<SideNoteHistory> {
+  async read(note: SideChat): Promise<SideChatHistory> {
     if (!note.childSessionId) {
-      throw new SideNoteError('INVALID_STATE', 'note has no child Session')
+      throw new SideChatError('INVALID_STATE', 'note has no child Session')
     }
     const session = await this.runtime.observe(note.childSessionId)
     try {
       const items: HistoryItem[] = []
       for (const event of session.events) {
         // Forks inherit the main transcript for model context, not for
-        // duplication in the visible SideNotes conversation.
+        // duplication in the visible SideChat conversation.
         if (event.seq < (session.inheritedEventCount ?? 0)) continue
         if (event.type !== 'user/message' && event.type !== 'assistant/message') continue
         const message = messageOf(event)

@@ -1,0 +1,83 @@
+name: Publish to npmjs.org
+
+on:
+  workflow_dispatch:
+    inputs:
+      authentication:
+        description: "Use OIDC after npm Trusted Publishing is configured; npm-token for initial bootstrap"
+        type: choice
+        required: true
+        default: oidc
+        options:
+          - oidc
+          - npm-token
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-publication-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'NoName4Me/dsh-sidechat' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.28.5'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+      - name: Confirm npm supports OIDC Trusted Publishing
+        run: |
+          node --version
+          npm --version
+          npm -v | awk -F. '{ if ($1 < 11 || ($1 == 11 && $2 < 5)) exit 1 }'
+      - name: Install pinned dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify Host, Client and package
+        run: |
+          pnpm typecheck
+          pnpm build
+          pnpm test
+          node --experimental-transform-types --test integration/*.test.ts
+          node scripts/check-manifest.mjs
+          npm pack --dry-run --json --ignore-scripts > /tmp/sidechat-pack.json
+          node -e "const p=require('./package.json');if(p.name!=='dsh-sidechat'||p.private||p.publishConfig.registry!=='https://registry.npmjs.org/')throw Error('unsafe package metadata')"
+          node -e "const f=require('/tmp/sidechat-pack.json')[0].files.map(x=>x.path);for(const p of ['lib/client.js','lib/index.mjs','cordis.patch.yml','dsh.plugin.json','icon.svg','locale/en.json','locale/zh.json'])if(!f.includes(p))throw Error('missing '+p)"
+      - name: Determine npm dist-tag
+        id: npm-tag
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$VERSION" == *-* ]]; then
+            TAG="${VERSION#*-}"
+            TAG="${TAG%%.*}"
+            if [[ ! "$TAG" =~ ^[a-z][a-z0-9-]*$ ]]; then
+              echo "Invalid dist-tag: $TAG" >&2
+              exit 1
+            fi
+          else
+            TAG="latest"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Publishing dsh-sidechat@$VERSION with npm dist-tag $TAG"
+      - name: Publish with npm Trusted Publishing (OIDC)
+        if: inputs.authentication == 'oidc'
+        run: npm publish --ignore-scripts --access public --tag "${{ steps.npm-tag.outputs.tag }}" --registry=https://registry.npmjs.org/
+      - name: Bootstrap publish using npm token
+        if: inputs.authentication == 'npm-token'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [[ -z "$NODE_AUTH_TOKEN" ]]; then
+            echo "Set the GitHub Actions secret NPM_TOKEN before the initial publish." >&2
+            exit 1
+          fi
+          npm publish --ignore-scripts --access public --tag "${{ steps.npm-tag.outputs.tag }}" --registry=https://registry.npmjs.org/

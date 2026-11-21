@@ -1,9 +1,9 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-query'
-import { SideNoteError } from '../domain/errors.ts'
-import type { SideNoteAnchor } from '../domain/types.ts'
-import type { SideNoteAccess } from './coordinator.ts'
+import { SideChatError } from '../domain/errors.ts'
+import type { SideChatAnchor } from '../domain/types.ts'
+import type { SideChatAccess } from './coordinator.ts'
 
 function sourceMessageId(event: { type: string; data: unknown }): string | undefined {
   if (!event.data || typeof event.data !== 'object') return undefined
@@ -15,7 +15,7 @@ function sourceMessageId(event: { type: string; data: unknown }): string | undef
 }
 
 /** Parent evidence is read from the DSH Session log, not from the browser. */
-export class DshSideNoteAccess implements SideNoteAccess {
+export class DshSideChatAccess implements SideChatAccess {
   private readonly ctx: Context
   constructor(ctx: Context) { this.ctx = ctx }
 
@@ -24,14 +24,14 @@ export class DshSideNoteAccess implements SideNoteAccess {
     observed[Symbol.dispose]()
   }
 
-  async assertAnchorBelongsToParent(parentSessionId: string, anchor: SideNoteAnchor): Promise<void> {
+  async assertAnchorBelongsToParent(parentSessionId: string, anchor: SideChatAnchor): Promise<void> {
     const observed = await this.ctx.sessionQuery.observeSession(SessionId(parentSessionId), { projectionMode: 'none' })
     try {
       if (!observed.events.some(event =>
         sourceMessageId(event) === anchor.messageId &&
         (anchor.eventSeq === undefined || event.seq === anchor.eventSeq),
       )) {
-        throw new SideNoteError('INVALID_INPUT', 'anchor message does not belong to the requested Session')
+        throw new SideChatError('INVALID_INPUT', 'anchor message does not belong to the requested Session')
       }
     } finally {
       observed[Symbol.dispose]()

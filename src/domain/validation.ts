@@ -1,5 +1,5 @@
-import { SideNoteError } from './errors.ts'
-import type { CreateSideNoteInput, SideNoteAnchor } from './types.ts'
+import { SideChatError } from './errors.ts'
+import type { CreateSideChatInput, SideChatAnchor } from './types.ts'
 
 const MAX_TITLE = 120
 const MAX_QUOTE = 8_000
@@ -11,7 +11,7 @@ export function requiredId(value: unknown, name: string, maxLength = 256): strin
     value.length > maxLength ||
     /[\u0000-\u001f]/u.test(value)
   ) {
-    throw new SideNoteError(
+    throw new SideChatError(
       'INVALID_INPUT',
       name + ' must be a nonempty string of at most ' + maxLength + ' characters',
     )
@@ -19,21 +19,21 @@ export function requiredId(value: unknown, name: string, maxLength = 256): strin
   return value
 }
 
-export function normalizeAnchor(input: SideNoteAnchor): SideNoteAnchor {
+export function normalizeAnchor(input: SideChatAnchor): SideChatAnchor {
   if (!input || typeof input !== 'object') {
-    throw new SideNoteError('INVALID_INPUT', 'anchor is required')
+    throw new SideChatError('INVALID_INPUT', 'anchor is required')
   }
   const messageId = requiredId(input.messageId, 'anchor.messageId')
   if (input.selectedText !== undefined && typeof input.selectedText !== 'string') {
-    throw new SideNoteError('INVALID_INPUT', 'anchor.selectedText must be a string')
+    throw new SideChatError('INVALID_INPUT', 'anchor.selectedText must be a string')
   }
   const selectedText = input.selectedText?.trim()
   if (selectedText && selectedText.length > MAX_QUOTE) {
-    throw new SideNoteError('INVALID_INPUT', 'selection exceeds the allowed length')
+    throw new SideChatError('INVALID_INPUT', 'selection exceeds the allowed length')
   }
   const eventSeq = input.eventSeq
   if (eventSeq !== undefined && (!Number.isSafeInteger(eventSeq) || eventSeq < 0)) {
-    throw new SideNoteError('INVALID_INPUT', 'anchor.eventSeq must be a nonnegative safe integer')
+    throw new SideChatError('INVALID_INPUT', 'anchor.eventSeq must be a nonnegative safe integer')
   }
   return {
     messageId,
@@ -42,21 +42,21 @@ export function normalizeAnchor(input: SideNoteAnchor): SideNoteAnchor {
   }
 }
 
-export function normalizeCreate(input: CreateSideNoteInput): Required<
-  Pick<CreateSideNoteInput, 'parentSessionId' | 'clientRequestId' | 'anchor' | 'title' | 'mode'>
+export function normalizeCreate(input: CreateSideChatInput): Required<
+  Pick<CreateSideChatInput, 'parentSessionId' | 'clientRequestId' | 'anchor' | 'title' | 'mode'>
 > {
   if (!input || typeof input !== 'object') {
-    throw new SideNoteError('INVALID_INPUT', 'create request is required')
+    throw new SideChatError('INVALID_INPUT', 'create request is required')
   }
   const parentSessionId = requiredId(input.parentSessionId, 'parentSessionId')
   const clientRequestId = requiredId(input.clientRequestId, 'clientRequestId', 128)
   const anchor = normalizeAnchor(input.anchor)
   const mode = input.mode ?? 'light'
   if (mode !== 'light' && mode !== 'fork') {
-    throw new SideNoteError('INVALID_INPUT', 'invalid context mode')
+    throw new SideChatError('INVALID_INPUT', 'invalid context mode')
   }
   if (input.title !== undefined && typeof input.title !== 'string') {
-    throw new SideNoteError('INVALID_INPUT', 'title must be a string')
+    throw new SideChatError('INVALID_INPUT', 'title must be a string')
   }
   const title = (
     input.title?.trim() ||

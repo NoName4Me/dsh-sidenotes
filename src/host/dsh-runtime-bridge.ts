@@ -20,12 +20,12 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'dsh-sidenotes': { kind: 'dsh-sidenotes'; form: 'notice'; summary: string }
+    'dsh-sidechat': { kind: 'dsh-sidechat'; form: 'notice'; summary: string }
   }
 }
 
 /** Real adapters deny *every* tool (including indirect PTC subcalls) by default. */
-const READ_ONLY_DENIAL = 'SideNotes: tool execution is disabled for read-only side conversations.'
+const READ_ONLY_DENIAL = 'SideChat: tool execution is disabled for read-only side conversations.'
 
 function wrapAgent(handle: AgentHandle): SideAgentHandle {
   const { agent } = handle
@@ -106,7 +106,7 @@ export class OfficialDshRuntimeBridge implements DshRuntimeBridge {
         created.agent.inject(createUserMessage({
           content: [{ type: 'text', text: options.initialContext }],
           source: {
-            kind: 'dsh-sidenotes', form: 'notice', summary: 'SideNotes isolated context',
+            kind: 'dsh-sidechat', form: 'notice', summary: 'SideChat isolated context',
           },
         }))
       }

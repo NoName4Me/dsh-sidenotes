@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { SideNotesRpcRouter, AuthenticatedPeer, SideRpcResult } from './rpc.ts'
-import { SIDENOTES_CHANNEL } from '../shared/channel.ts'
+import type { SideChatRpcRouter, AuthenticatedPeer, SideRpcResult } from './rpc.ts'
+import { SIDECHAT_CHANNEL } from '../shared/channel.ts'
 
 const MAX_RPC_BYTES = 96 * 1024
 
@@ -58,20 +58,20 @@ function refused(code: string, message: string): SideRpcResult {
  * Direct WebServer route instead of the Connection RPC registry.
  * DSH WebServer authenticates the caller (auth: required) and applies the
  * installed Connection origin/source policy before calling this handler.
- * The SideNotes router separately enforces owner-only and Session checks.
+ * The SideChat router separately enforces owner-only and Session checks.
  */
-export function registerSideNotesWebRoute(
+export function registerSideChatWebRoute(
   server: AuthenticatedWebServer,
-  router: SideNotesRpcRouter,
+  router: SideChatRpcRouter,
   authenticate: (req: IncomingMessage) => AuthenticatedPeer | undefined,
 ): () => void | Promise<void> {
   return server.register({
     kind: 'prefix',
-    path: SIDENOTES_CHANNEL,
+    path: SIDECHAT_CHANNEL,
     auth: 'required',
     async handler(req, res, peer) {
       const pathname = new URL(req.url ?? '/', 'http://localhost').pathname
-      const prefix = SIDENOTES_CHANNEL + '/'
+      const prefix = SIDECHAT_CHANNEL + '/'
       const method = pathname.startsWith(prefix) ? pathname.slice(prefix.length) : ''
       if (req.method !== 'POST' || !/^[a-z][a-z-]*$/u.test(method)) {
         respond(res, 404, { error: 'not found' })
@@ -107,7 +107,7 @@ export function registerSideNotesWebRoute(
         respond(res, 200, {
           type: 'server-response',
           rpcId: request.rpcId,
-          result: refused('sidenotes/operation-failed', 'SideNotes operation failed'),
+          result: refused('sidechat/operation-failed', 'SideChat operation failed'),
         })
       }
     },

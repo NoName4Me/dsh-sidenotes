@@ -1,111 +1,69 @@
-# Side Chat · 旁敲侧击
+# 旁敲侧击 · Side Chat
 
-A context-aware side-conversation plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
+让 DeepSeek Harness 的主对话保持完整，同时围绕一段选中文字或一条 AI 回复开展独立的侧聊。
 
-> **Developer preview (0.1.0-dev.5)** for **DSH 0.2.2-rc.5**. Installation, Host/Client compilation and the authenticated Host RPC are verified in an actual DSH Web Profile. Manual browser/LLM conversation acceptance is still required before general release.
+**产品名称**：旁敲侧击 / Side Chat  
+**按钮**：侧聊  
+**npm 包名**：`dsh-sidechat`（无 scope）  
+**GitHub**：https://github.com/NoName4Me/dsh-sidechat
 
-Side Chat lets you ask anchored questions without derailing the main conversation. Side threads are separate DSH Agent Sessions: the parent context is unchanged unless you explicitly copy an answer back to the main composer.
+> Developer preview `0.1.0-dev.6`，面向 DeepSeek Harness `0.2.2-rc.5`。正式 Desktop 多模型验收仍在进行，暂不视为稳定版。
 
-## Features
+## 直接在 DSH 界面安装
 
-- **Ask aside** — Use the native icon action beneath a completed assistant response, or select text and choose **侧聊** beside DSH's existing **引用文本** action within the same capsule. Write the question and submit: the child Session is created and the prompt is sent together.
-- **Two context modes** — **Light** (default) sends a small, independent contextual quote. **Fork** inherits parent events through the source's completed turn.
-- **Back-to-back navigation** — Browse and search side conversations from the native Sidebar home. No competing floating directory.
-- **Resume and manage** — Return to a side conversation from the Sidebar directory or a small marker beside the original message. Jump back to the source and flash only the selected quotation (or the whole source message for a full-message anchor). Archive, restore or promote to a regular DSH Session.
-- **Bring back deliberately** — Copy an answer, insert a selected response into the parent composer as a quote (never automatically send), or ask the side Agent to summarize the discussion before bringing back its answer.
-- **Isolation** — Side Agent tool execution is denied by the Host by default. This is more restrictive than read-only file access and can be relaxed only after an audited permissions policy.
+npmjs.org 公共包发布成功后，打开 **DSH Desktop → 插件 → 添加插件**，输入：
 
-## Install from source (DSH Web / Desktop)
+```text
+dsh-sidechat@dev
+```
 
-Requires Node.js **24.9+**, pnpm **11.28.5**, and DSH **0.2.2-rc.5**.
+也可以指定版本 `dsh-sidechat@0.1.0-dev.6`。使用 DSH 默认的 npm 安装源，无须配置 GitHub Packages 或个人 Token。安装完成后点击「立即启用」，必要时重启 Desktop。
+
+**更名迁移**：请先卸载旧的 `dsh-sidenotes` 或 `@noname4me/dsh-sidenotes`，不要在一个 DSH Profile 中同时加载新旧身份。为了保留已有的侧聊记录，Host 暂继续读取历史的 `state/sidenotes.json`，并识别记录中已绑定的旧子 Session ID。先备份原 Profile 再升级。此兼容路径仅用于数据读取，不是新插件的名称。
+
+## 主要功能
+
+- 点击 AI 回复下方「侧聊」图标，或在原生「引用文本」胶囊中选择「侧聊」。
+- 可在 Light / Fork 两种上下文方式中选择，侧聊由独立 DSH Agent Session 运行，不修改主对话。
+- 侧聊目录集中在 DSH 原生右侧 Sidebar；主回复上方的锚点可直接打开对应侧聊。
+- 支持多轮追问、复制回答、引用到主对话草稿、来源定位与局部高亮、归档/恢复/升格。
+
+## 开发
+
+要求 Node.js 24.9+、pnpm 11.28.5。
 
 ```sh
-git clone https://github.com/NoName4Me/dsh-sidenotes.git
-cd dsh-sidenotes
+git clone https://github.com/NoName4Me/dsh-sidechat.git
+cd dsh-sidechat
 corepack enable
 pnpm install --frozen-lockfile
-pnpm build
-mkdir -p dist
-pnpm pack --pack-destination dist
-
-# In the installed DSH CLI environment:
-dsh plugin --profile web add ./dist/dsh-sidenotes-0.1.0-dev.5.tgz
-dsh --profile web
-```
-
-For **Desktop**, use its own Plugins UI to install or update the tarball, or fully quit Desktop and use the **Desktop-bundled** `dsh` binary (not an npm-installed CLI):
-
-```sh
-dsh plugin --profile desktop add /absolute/path/to/dsh-sidenotes-0.1.0-dev.5.tgz
-```
-
-Restart Desktop afterward. Desktop and Web have **separate profiles**. Replace the tarball argument with its **absolute path** if you run `dsh plugin` from a different directory. The plugin's activation bundle is included in the package. In the UI, open a conversation and use the **侧聊** action below an assistant response, or select text and click the nearby **侧聊** button.
-
-## Implementation and development
-
-- Product and architecture diagrams: [docs/design.md](docs/design.md)
-- Engineering conventions: [docs/development.md](docs/development.md)
-- DSH API details: [docs/dsh-integration.md](docs/dsh-integration.md)
-- Milestones: [docs/roadmap.md](docs/roadmap.md)
-- Coding agent guidance: [AGENTS.md](AGENTS.md)
-
-```sh
 pnpm typecheck
 pnpm build
 pnpm test
 ```
 
-Main components:
+源码：`src/client`（UI）、`src/host`（Agent / RPC）、`src/domain`（数据与权限）、`src/shared`（通信协议）。
 
-- `src/domain`: anchored note records, lifecycle and durable JSON repository.
-- `src/host`: owner-scoped RPC, native DSH Agent lifecycle, history projection, tool-deny policy and promotion.
-- `src/client`: message action, source markers, side-thread chat and explicit bring-back.
-- `src/shared`: Host/Client protocol identifiers.
+相关文档：[设计](docs/design.md) · [开发规范](docs/development.md) · [DSH 对接](docs/dsh-integration.md) · [路线图](docs/roadmap.md)。
 
-## Current limitations
+## 手动发布到 npmjs.org
 
-- The panel displays **text** messages and polls the child Session history. It does not yet render the full native Chat tool/image UI.
-- The source-jump action requires the source message to be loaded in the current main view.
-- The runtime target is fixed to DSH 0.2.2-rc.5, not arbitrary older or newer releases.
-- A real user walkthrough with a configured model, hot reload and session promotion across restarts has not yet been confirmed. Do not treat the preview as production-hardened.
-- The proposed advanced **main-Agent-side search of other side conversations** is not yet implemented. It remains explicitly opt-in rather than automatically contaminating the parent context.
+仓库的 **Actions → Publish to npmjs.org → Run workflow** 提供两个认证选项：
 
-## License
+1. **npm-token**：首次发布新 npm 包时可选。先在 npmjs.com 获取有对应发布权限的 Token，并在 GitHub 仓库的 Actions secrets 中创建 `NPM_TOKEN`；在 npm 账户完成必要的 2FA / 发布许可设置。
+2. **oidc**：首次发布后，登录 npmjs.com，在 `dsh-sidechat` 的 Settings → Trusted Publishing 中绑定 GitHub Actions，填写 owner `NoName4Me`、repository `dsh-sidechat`、workflow `publish-npm.yml`，授权 `npm publish`，随后使用 OIDC，无需长期写权限 Token。
 
-MIT. See [LICENSE](LICENSE).
+也可以使用支持首次建包的 npm Trusted Publishing 初始化流程，再直接使用 OIDC。详细说明以 [npm Trusted Publishing 文档](https://docs.npmjs.com/trusted-publishers/) 为准。
 
-## Desktop UI compatibility fix (0.1.0-dev.5)
+工作流只支持手动触发，且限制在主仓库 `master`。所有提交仍需通过构建、测试和 npm pack 检查。预览版使用 `dev` dist-tag，正式版使用 `latest`。
 
-The first preview incorrectly published `lib/client.js` as an ES module. DSH's Web/Desktop plugin loader requires a classic script factory registered with `window.__ModuleLoader__.load({ id: 'dsh-sidenotes', factory })`. This release emits the required loader wrapper and fails its build check if a bare ESM output reappears. The installed plugin package identity remains `dsh-sidenotes`; the product branding is **Side Chat / 旁敲侧击**.
+**注意：GitHub Actions 工作流准备完成并不等于已发布到 npm。** 首次发布前还必须确认 `dsh-sidechat` 包名可用、完成 npm 认证或 OIDC 信任关系配置。不要向聊天或仓库提交 npm Token。
 
-## Entry placement (Side Chat)
+## 当前限制
 
-- **Native right Sidebar:** independent chat history and composer; it shares the Host's tab strip, resizing, and layout.
-- **Single directory:** browse and search side conversations in the native right Sidebar's Side Chat home. No extra floating dots or search rail.
-- **Message-edge anchor:** a small icon at the right of the original answer's content, aligned to the beginning of the full reply or the selected phrase. Hover shows the quotation and your first question.
-- **Selected-text capsule:** DSH's **引用文本** action and **侧聊** share one pill. This integration uses a small portal into the native Quote popup because DSH 0.2.2-rc.5 exposes an exclusive keyed interaction slot; it does not override or disable the built-in action. The menu appears after pointer release / completed keyboard selection, not while dragging.
-- **Jump back:** scrolls and flashes the selected text (or the whole message for a full-message side conversation). An exact text match is necessary for phrase-level highlight; if the source content has changed the UI reports the mismatch rather than highlighting unrelated text.
+- 侧聊对话目前主要支持文本历史，原生 Chat 的富媒体渲染尚未全部复用。
+- 来源跳转要求相关主对话消息已加载。
+- Side Agent 默认拒绝工具执行。
+- 尚需 Desktop 真正的模型多轮、重启与升格验收。
 
-The source message must still be loaded in the current conversation to support exact jumping and message-edge markers.
-
-**Dev.5 UI revision:** removed the redundant companion rail; source highlights the actual reply body, not the footer toolbar; the composer uses a compact dark circular send/stop control; plugin-center metadata and artwork are localized in exported en/zh files. These changes compile and pass Web Host startup checks, but the exact desktop interaction needs a real desktop walkthrough.
-
-> **Why the button was missing in dev.0:** The first release was built as ESM, which DSH's classic-script loader could not parse. Dev.1 fixed the client loader factory; dev.2 also replaces the extra right-edge rail with the native DSH right Sidebar tab and adds selected-text access. Update/reinstall the new package and restart the Desktop app. A successfully enabled Host plugin alone does not prove its Client factory ran.
-
-## Plugin Manager display
-
-The package exports `./icon` (original 36×36 SVG) and `./locale/en.json` / `./locale/zh.json`. DSH resolves the bundle's title and description according to the active UI locale; English is the fallback. The icon file has no enclosing tile so it remains legible in dark and light themes. UI labels keep the **侧边聊** action wording.
-
-## Manually publish to GitHub Packages
-
-Use **Actions → Publish to GitHub Packages → Run workflow**, selecting the `master` branch. This workflow is `workflow_dispatch` only and never runs automatically for a push. It verifies the Host/Client build and tests before publishing to **GitHub Packages' npm registry**, not npmjs.org, with the built-in `GITHUB_TOKEN` (`packages: write`).
-
-GitHub Packages only supports scoped npm packages. The workflow prepares `@noname4me/dsh-sidenotes` in a separate staging directory, updating its Cordis patch and DSH Client module ID. The local tarball `dsh-sidenotes` keeps its existing identity and data compatibility. **Do not install the unscoped and scoped packages together in the same DSH profile**, as both would register the same plugin services.
-
-To install the GitHub Packages variant you need npm access to the package. Configure the registry scope and an appropriate GitHub Packages read token (in your own npm settings), then install `@noname4me/dsh-sidenotes` through DSH. The existing CI local `.tgz` is simpler for testing. Each name + version can be published once; update `package.json` and `dsh.plugin.json` before publishing another version.
-
-The manual publishing action has been added, **but no publication has been triggered**.
-
-### npm prerelease dist-tags
-
-The publish workflow automatically sets the npm dist-tag based on the version: `0.1.0-dev.5` publishes with `--tag dev`, `1.0.0-rc.1` with `--tag rc`, and stable versions with `--tag latest`. This is required by the npm CLI for prerelease versions; the `always-auth` warning from npm's current version is not a publish failure. After updating this workflow, start a **new** manual workflow run on `master` rather than rerunning the earlier failed run at its old commit.
+MIT License.

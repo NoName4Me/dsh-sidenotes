@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { MemorySideNoteRepository } from '../src/domain/memory-repository.ts'
-import { SideNoteService } from '../src/domain/service.ts'
-import { SideNoteCoordinator } from '../src/host/coordinator.ts'
-import { SideNotesRpcRouter } from '../src/host/rpc.ts'
+import { MemorySideChatRepository } from '../src/domain/memory-repository.ts'
+import { SideChatService } from '../src/domain/service.ts'
+import { SideChatCoordinator } from '../src/host/coordinator.ts'
+import { SideChatRpcRouter } from '../src/host/rpc.ts'
 import { DshHistoryReader } from '../src/host/history.ts'
 import type { ObservedSession } from '../src/host/dsh-session-adapter.ts'
 
 function fixture() {
   const calls: string[] = []
-  const coordinator = new SideNoteCoordinator(
-    new SideNoteService(new MemorySideNoteRepository(), { idFactory: () => 'n1' }),
+  const coordinator = new SideChatCoordinator(
+    new SideChatService(new MemorySideChatRepository(), { idFactory: () => 'n1' }),
     {
       async assertParentAccess(parent) { if (parent !== 'p1') throw new Error('bad parent') },
       async assertAnchorBelongsToParent(_parent, anchor) {
@@ -30,7 +30,7 @@ function fixture() {
       const session: ObservedSession = {
         header: { id },
         events: [
-          { seq: 0, type: 'user/message', data: { id: 'injected', content: [{ type: 'text', text: 'internal context' }], source: { kind: 'dsh-sidenotes' } } },
+          { seq: 0, type: 'user/message', data: { id: 'injected', content: [{ type: 'text', text: 'internal context' }], source: { kind: 'dsh-sidechat' } } },
           { seq: 1, type: 'user/message', data: { id: 'u1', content: [{ type: 'text', text: 'Question?' }], source: { kind: 'user' } } },
           { seq: 2, type: 'assistant/message', data: { message: { id: 'a1', content: [{ type: 'text', text: 'Answer.' }] } } },
         ],
@@ -40,17 +40,17 @@ function fixture() {
     },
     isRunning: () => false,
   })
-  const router = new SideNotesRpcRouter(coordinator, reader)
+  const router = new SideChatRpcRouter(coordinator, reader)
   const owner = { principal: { kind: 'owner' } }
   return { router, owner, calls }
 }
 
-describe('authenticated SideNotes RPC router', () => {
+describe('authenticated SideChat RPC router', () => {
   it('denies non-owner peers before parsing the payload', async () => {
     const f = fixture()
     assert.deepEqual(
       await f.router.handle({ principal: { kind: 'guest' } }, 'list', null),
-      { ok: false, error: { code: 'sidenotes/denied', message: 'SideNotes is available to the Host owner only', details: {} } },
+      { ok: false, error: { code: 'sidechat/denied', message: 'SideChat is available to the Host owner only', details: {} } },
     )
   })
 

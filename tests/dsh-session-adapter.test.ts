@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { DshSideSessionAdapter } from '../src/host/dsh-session-adapter.ts'
 import type { CreateSideAgent, DshRuntimeBridge, ObservedSession, SideAgentHandle } from '../src/host/dsh-session-adapter.ts'
-import type { SideNote } from '../src/domain/types.ts'
+import type { SideChat } from '../src/domain/types.ts'
 
-function note(mode: 'fork' | 'light' = 'fork'): SideNote {
+function note(mode: 'fork' | 'light' = 'fork'): SideChat {
   return {
     id: 'n1', clientRequestId: 'r1', parentSessionId: 'parent',
     childSessionId: null, anchor: { messageId: 'm1', eventSeq: 1, selectedText: 'selected text' },
@@ -27,7 +27,7 @@ function fixture() {
   let idle = Promise.resolve()
   let resolved: (() => void) | undefined
   const agent: SideAgentHandle = {
-    id: 'session-sidenotes-n1',
+    id: 'session-sidechat-n1',
     followup: text => calls.push('followup:' + text),
     cancel: () => calls.push('cancel'),
     whenIdle: () => idle,
@@ -69,7 +69,7 @@ function fixture() {
     finish() { resolved?.() },
   }
 }
-const sid = 'session-sidenotes-n1'
+const sid = 'session-sidechat-n1'
 const flush = async () => new Promise(resolve => setImmediate(resolve))
 
 describe('DshSideSessionAdapter', () => {

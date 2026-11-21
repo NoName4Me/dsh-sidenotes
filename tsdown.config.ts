@@ -21,7 +21,7 @@ export default defineConfig([
     outputOptions: {
       entryFileNames: 'client.js',
       codeSplitting: false,
-      banner: "window.__ModuleLoader__.load({ id: 'dsh-sidenotes', factory: (require) => {",
+      banner: "window.__ModuleLoader__.load({ id: 'dsh-sidechat', factory: (require) => {",
       intro: 'var module = { exports: {} }; var exports = module.exports;',
       footer: 'return module.exports; } });',
     },

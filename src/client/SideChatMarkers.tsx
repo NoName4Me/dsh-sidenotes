@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import type { SideChatCatalog } from './catalog.ts'
-import type { SideNoteIntentStore } from './intent.ts'
+import type { SideChatIntentStore } from './intent.ts'
 import { SideChatIcon } from './Icon.tsx'
 import { locateQuote, locateSource } from './source-anchor.ts'
 
@@ -17,7 +17,7 @@ interface AnchorMark {
 export function SideChatMarkers({ catalog, currentSession, intent, openSideChat }: {
   catalog: SideChatCatalog
   currentSession: CurrentSessionSource
-  intent: SideNoteIntentStore
+  intent: SideChatIntentStore
   openSideChat: () => void
 }) {
   const state = useSyncExternalStore(catalog.subscribe, catalog.getSnapshot)

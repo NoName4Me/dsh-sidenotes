@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { SideNoteError } from '../src/domain/errors.ts'
-import { MemorySideNoteRepository } from '../src/domain/memory-repository.ts'
-import { SideNoteService } from '../src/domain/service.ts'
+import { SideChatError } from '../src/domain/errors.ts'
+import { MemorySideChatRepository } from '../src/domain/memory-repository.ts'
+import { SideChatService } from '../src/domain/service.ts'
 
 function setup() {
-  const repository = new MemorySideNoteRepository()
+  const repository = new MemorySideChatRepository()
   let nextId = 0
-  const service = new SideNoteService(repository, {
+  const service = new SideChatService(repository, {
     idFactory: () => 'note-' + ++nextId,
     now: () => new Date('2026-11-20T08:00:00.000Z'),
   })
@@ -22,11 +22,11 @@ function setup() {
 async function rejectCode(operation: Promise<unknown>, code: string) {
   await assert.rejects(
     operation,
-    error => error instanceof SideNoteError && error.code === code,
+    error => error instanceof SideChatError && error.code === code,
   )
 }
 
-describe('SideNoteService', () => {
+describe('SideChatService', () => {
   it('creates an anchored note and deduplicates the same request key', async () => {
     const { service, input } = setup()
     const first = await service.create(input)

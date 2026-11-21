@@ -1,12 +1,12 @@
-import { SideNoteError } from '../domain/errors.ts'
-import { SideNoteService } from '../domain/service.ts'
+import { SideChatError } from '../domain/errors.ts'
+import { SideChatService } from '../domain/service.ts'
 import { normalizeCreate, requiredId } from '../domain/validation.ts'
-import type { CreateSideNoteInput, SideNote, SideNoteAnchor } from '../domain/types.ts'
+import type { CreateSideChatInput, SideChat, SideChatAnchor } from '../domain/types.ts'
 
 /** Every exposed Host operation must be checked against the authenticated caller. */
-export interface SideNoteAccess {
+export interface SideChatAccess {
   assertParentAccess(parentSessionId: string): Promise<void>
-  assertAnchorBelongsToParent(parentSessionId: string, anchor: SideNoteAnchor): Promise<void>
+  assertAnchorBelongsToParent(parentSessionId: string, anchor: SideChatAnchor): Promise<void>
 }
 
 /**
@@ -18,11 +18,11 @@ export interface SideNoteAccess {
  * The adapter is responsible for enforcing read-only at the Host tool layer.
  */
 export interface SideSessionPort {
-  ensure(note: SideNote, policy: { readOnly: true }): Promise<{ sessionId: string }>
+  ensure(note: SideChat, policy: { readOnly: true }): Promise<{ sessionId: string }>
   followup(sessionId: string, text: string): Promise<void>
   cancel(sessionId: string): Promise<void>
   /** Idempotent for note.id; do not change visibility until Agent is stable. */
-  promote(note: SideNote): Promise<{ sessionId: string }>
+  promote(note: SideChat): Promise<{ sessionId: string }>
 }
 
 const MAX_FOLLOWUP_LENGTH = 32_000
@@ -32,15 +32,15 @@ const MAX_FOLLOWUP_LENGTH = 32_000
  * In-flight coalescing is process-local; cross-process safety depends on the
  * repository's compare-and-swap and the adapter's deterministic ensure().
  */
-export class SideNoteCoordinator {
+export class SideChatCoordinator {
   private readonly inFlight = new Map<string, Promise<unknown>>()
-  private readonly notes: SideNoteService
-  private readonly access: SideNoteAccess
+  private readonly notes: SideChatService
+  private readonly access: SideChatAccess
   private readonly sessions: SideSessionPort
 
   constructor(
-    notes: SideNoteService,
-    access: SideNoteAccess,
+    notes: SideChatService,
+    access: SideChatAccess,
     sessions: SideSessionPort,
   ) {
     this.notes = notes
@@ -48,7 +48,7 @@ export class SideNoteCoordinator {
     this.sessions = sessions
   }
 
-  async create(input: CreateSideNoteInput): Promise<SideNote> {
+  async create(input: CreateSideChatInput): Promise<SideChat> {
     const normalized = normalizeCreate(input)
     await this.access.assertParentAccess(normalized.parentSessionId)
     await this.access.assertAnchorBelongsToParent(normalized.parentSessionId, normalized.anchor)
@@ -62,17 +62,17 @@ export class SideNoteCoordinator {
       note.anchor.selectedText !== normalized.anchor.selectedText ||
       note.title !== normalized.title
     ) {
-      throw new SideNoteError('CONFLICT', 'request id was reused with different content')
+      throw new SideChatError('CONFLICT', 'request id was reused with different content')
     }
     return this.ensureBound(normalized.parentSessionId, note.id)
   }
 
-  async get(parentSessionId: string, noteId: string): Promise<SideNote> {
+  async get(parentSessionId: string, noteId: string): Promise<SideChat> {
     await this.authorize(parentSessionId)
     return this.notes.get(parentSessionId, noteId)
   }
 
-  async list(parentSessionId: string, includeArchived = false): Promise<SideNote[]> {
+  async list(parentSessionId: string, includeArchived = false): Promise<SideChat[]> {
     await this.authorize(parentSessionId)
     return this.notes.list(parentSessionId, includeArchived)
   }
@@ -81,7 +81,7 @@ export class SideNoteCoordinator {
     await this.authorize(parentSessionId)
     const note = await this.notes.get(parentSessionId, noteId)
     if (note.status !== 'active') {
-      throw new SideNoteError('INVALID_STATE', 'only active side notes accept followups')
+      throw new SideChatError('INVALID_STATE', 'only active side chats accept followups')
     }
     if (
       typeof text !== 'string' ||
@@ -89,10 +89,10 @@ export class SideNoteCoordinator {
       text.length > MAX_FOLLOWUP_LENGTH ||
       text.includes('\0')
     ) {
-      throw new SideNoteError('INVALID_INPUT', 'invalid followup text')
+      throw new SideChatError('INVALID_INPUT', 'invalid followup text')
     }
     if (!note.childSessionId) {
-      throw new SideNoteError('INVALID_STATE', 'side note is not attached to a DSH session')
+      throw new SideChatError('INVALID_STATE', 'side chat is not attached to a DSH session')
     }
     await this.hydrate(note)
     await this.sessions.followup(note.childSessionId, text)
@@ -106,17 +106,17 @@ export class SideNoteCoordinator {
     await this.sessions.cancel(note.childSessionId)
   }
 
-  async archive(parentSessionId: string, noteId: string): Promise<SideNote> {
+  async archive(parentSessionId: string, noteId: string): Promise<SideChat> {
     await this.authorize(parentSessionId)
     return this.notes.archive(parentSessionId, noteId)
   }
 
-  async restore(parentSessionId: string, noteId: string): Promise<SideNote> {
+  async restore(parentSessionId: string, noteId: string): Promise<SideChat> {
     await this.authorize(parentSessionId)
     return this.notes.restore(parentSessionId, noteId)
   }
 
-  async promote(parentSessionId: string, noteId: string): Promise<SideNote> {
+  async promote(parentSessionId: string, noteId: string): Promise<SideChat> {
     await this.authorize(parentSessionId)
     return this.singleFlight('promote:' + noteId, async () => {
       let note = await this.notes.get(parentSessionId, noteId)
@@ -130,7 +130,7 @@ export class SideNoteCoordinator {
     })
   }
 
-  private async ensureBound(parentSessionId: string, noteId: string): Promise<SideNote> {
+  private async ensureBound(parentSessionId: string, noteId: string): Promise<SideChat> {
     return this.singleFlight('ensure:' + noteId, async () => {
       const existing = await this.notes.get(parentSessionId, noteId)
       if (existing.childSessionId) return existing
@@ -144,13 +144,13 @@ export class SideNoteCoordinator {
   }
 
   /** Rehydrate the Agent after Host restart; binding metadata alone is not a live Agent. */
-  private async hydrate(note: SideNote): Promise<void> {
+  private async hydrate(note: SideChat): Promise<void> {
     if (!note.childSessionId) {
-      throw new SideNoteError('INVALID_STATE', 'side note has no backing Session')
+      throw new SideChatError('INVALID_STATE', 'side chat has no backing Session')
     }
     const resumed = await this.sessions.ensure(note, { readOnly: true })
     if (resumed.sessionId !== note.childSessionId) {
-      throw new SideNoteError('CONFLICT', 'resumed child does not match persisted note binding')
+      throw new SideChatError('CONFLICT', 'resumed child does not match persisted note binding')
     }
   }
 

@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type { SideNoteIntentStore } from './intent.ts'
+import type { SideChatIntentStore } from './intent.ts'
 
 interface CurrentSessionSource {
   getSnapshot(): { key?: string }
   subscribe(listener: () => void): () => void
 }
 interface SelectionActionProps extends PropsRuntime<'shell.overlay'> {
-  readonly intent: SideNoteIntentStore
+  readonly intent: SideChatIntentStore
   readonly currentSession: CurrentSessionSource
   readonly openSideChat: () => void
 }
@@ -35,10 +35,10 @@ function selectedTarget(currentSession: CurrentSessionSource): Omit<SelectionTar
   const row = source.closest<HTMLElement>('[data-chat-turn]')
   const flow = source.closest<HTMLElement>('[data-chat-flow]')
   if (!row || !flow || !row.dataset.chatTurn) return null
-  const messageAnchor = Array.from(flow.querySelectorAll<HTMLElement>('[data-sidenotes-anchor]'))
+  const messageAnchor = Array.from(flow.querySelectorAll<HTMLElement>('[data-sidechat-anchor]'))
     .find(button => button.closest<HTMLElement>('[data-chat-turn]')?.dataset.chatTurn === row.dataset.chatTurn)
-  if (!messageAnchor?.dataset.sidenotesAnchor) return null
-  return { sessionId, messageId: messageAnchor.dataset.sidenotesAnchor, text }
+  if (!messageAnchor?.dataset.sidechatAnchor) return null
+  return { sessionId, messageId: messageAnchor.dataset.sidechatAnchor, text }
 }
 
 function quoteCapsule(): HTMLElement | null {
@@ -121,14 +121,14 @@ export function SideChatSelectionAction({
   if (!target || !target.host.isConnected) return null
   return createPortal(
     <button type="button" className="sc-selection-action" data-side-chat-selection-button
-      aria-label="侧边聊：就选中内容发起侧边对话"
+      aria-label="侧聊：就选中内容发起侧边对话"
       onPointerDown={event => event.preventDefault()}
       onClick={() => {
         intent.open(target.sessionId, target.messageId, target.text)
         setTarget(null)
         document.getSelection()?.removeAllRanges()
         openSideChat()
-      }}>侧边聊</button>,
+      }}>侧聊</button>,
     target.host,
   )
 }

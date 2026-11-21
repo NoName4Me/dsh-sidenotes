@@ -8,15 +8,15 @@ import type {} from '@deepseek-ai/dsh-session-query'
 import type {} from '@deepseek-ai/dsh-session-persistence'
 import type {} from '@deepseek-ai/dsh-tools'
 import type {} from '@deepseek-ai/dsh-workspace'
-import { DshSideNoteAccess } from './access.ts'
+import { DshSideChatAccess } from './access.ts'
 import { DshSideSessionAdapter } from './dsh-session-adapter.ts'
 import { OfficialDshRuntimeBridge } from './dsh-runtime-bridge.ts'
 import { DshHistoryReader } from './history.ts'
-import { SideNotesRpcRouter } from './rpc.ts'
-import { registerSideNotesWebRoute, type AuthenticatedWebServer } from './secured-route.ts'
-import { createSideNoteHostRuntime } from './runtime.ts'
+import { SideChatRpcRouter } from './rpc.ts'
+import { registerSideChatWebRoute, type AuthenticatedWebServer } from './secured-route.ts'
+import { createSideChatHostRuntime } from './runtime.ts'
 
-export const name = 'dsh-sidenotes'
+export const name = 'dsh-sidechat'
 
 /** Ensure that the Host has persistence, Agent Factory and Connection ready. */
 export const inject = [
@@ -26,7 +26,7 @@ export const inject = [
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
-    sidenotes: SideNotesService
+    sidechat: SideChatService
   }
 }
 
@@ -35,44 +35,45 @@ declare module '@deepseek-ai/cordis' {
  * official Connection service. No browser-callable unauthenticated HTTP route
  * is created.
  */
-export class SideNotesService extends Service {
+export class SideChatService extends Service {
   private readonly adapter: DshSideSessionAdapter
-  private readonly router: SideNotesRpcRouter
+  private readonly router: SideChatRpcRouter
 
   constructor(ctx: Context) {
-    super(ctx, 'sidenotes')
+    super(ctx, 'sidechat')
     const runtime = new OfficialDshRuntimeBridge(ctx)
     this.adapter = new DshSideSessionAdapter(runtime)
-    const coordinator = createSideNoteHostRuntime(
+    const coordinator = createSideChatHostRuntime(
+      // Reuse the historical store so already-created side chats survive the plugin rename.
       dshHomePath('state', 'sidenotes.json'),
-      new DshSideNoteAccess(ctx),
+      new DshSideChatAccess(ctx),
       this.adapter,
     )
     const history = new DshHistoryReader({
       observe: id => runtime.observe(id),
       isRunning: id => ctx.agents.get(SessionId(id))?.status === 'running',
     })
-    this.router = new SideNotesRpcRouter(coordinator, history)
+    this.router = new SideChatRpcRouter(coordinator, history)
     // DSH WebServer owns authentication, Host/Origin policy and route lifetime.
     // A direct authenticated route avoids version-sensitive Connection registry
     // contextual ownership while preserving its wire-compatible RPC envelope.
     ctx.inject(['webServer'], (scope) => {
       const server = scope.get('webServer') as unknown as AuthenticatedWebServer
-      scope.effect(() => registerSideNotesWebRoute(server, this.router, req => {
+      scope.effect(() => registerSideChatWebRoute(server, this.router, req => {
         const result = scope.connection.admit({
           headers: req.headers,
         })
         return 'peer' in result ? result.peer : undefined
       }),
-        'sidenotes: authenticated Web RPC')
-      console.info('[dsh-sidenotes] authenticated Web RPC mounted')
+        'sidechat: authenticated Web RPC')
+      console.info('[dsh-sidechat] authenticated Web RPC mounted')
     })
     ctx.effect(() => async () => {
       await this.adapter.dispose()
-    }, 'sidenotes: child Agent lifetime')
+    }, 'sidechat: child Agent lifetime')
   }
 }
 
 export function apply(ctx: Context): void {
-  new SideNotesService(ctx)
+  new SideChatService(ctx)
 }

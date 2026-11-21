@@ -18,7 +18,7 @@
 3. 业务状态保存在 Host 与元数据存储，Client 仅保存页面状态。
 4. 用户输入、消息选区和外部响应在入口处校验；所有创建/升格操作支持幂等或明确冲突错误。
 5. 不记录 API Key、消息全文或工作区敏感内容到日志。
-6. 关键逻辑需有测试：SideNote 生命周期、锚点、索引、重复创建与权限回流。
+6. 关键逻辑需有测试：SideChat 生命周期、锚点、索引、重复创建与权限回流。
 7. 新增配置、RPC 或 Host API 要同步修改文档和测试。
 
 ## 提交规范
@@ -61,7 +61,7 @@
 
 ## Host Coordinator 边界（M2 进行中）
 
-`src/host/coordinator.ts` 已实现受控操作流程，`src/host/runtime.ts` 提供 File Repository 与端口的组合工厂。测试模拟 `SideSessionPort` 和 `SideNoteAccess`；这些模拟不能替代真实 DSH Agent/Session、Host 身份验证或工具权限验证。
+`src/host/coordinator.ts` 已实现受控操作流程，`src/host/runtime.ts` 提供 File Repository 与端口的组合工厂。测试模拟 `SideSessionPort` 和 `SideChatAccess`；这些模拟不能替代真实 DSH Agent/Session、Host 身份验证或工具权限验证。
 
 官方 `ctx.sessions.fork()` 会创建内存 Session，但**不会自动完成持久化 Agent 生命周期**。实际宿主适配必须使用已验证的 `ctx.agents.create({ seed, inheritedEventCount, parentSource, ... })` 或等效官方 Session Controller，设置 Agent Handle 所有权并在宿主端强制只读策略。
 
@@ -69,12 +69,12 @@
 
 ## Host RPC integration (M2)
 
-SideNotes exposes only an authenticated DSH Connection logical channel:
-`ctx.connection.rpc.handle('/sidenotes', handler)`. Calls from the Web Client
-use `ctx.connection.rpc.call('/sidenotes', operation, payload)`.
+SideChat exposes only an authenticated DSH Connection logical channel:
+`ctx.connection.rpc.handle('/sidechat', handler)`. Calls from the Web Client
+use `ctx.connection.rpc.call('/sidechat', operation, payload)`.
 
 The handler explicitly denies `peer.principal.kind !== 'owner'`, then validates
-payload shape and delegates to `SideNoteCoordinator`. An independent parent
+payload shape and delegates to `SideChatCoordinator`. An independent parent
 access helper reads DSH Session events to verify the source message; no
 untrusted request can supply its own Agent object or host credentials.
 The transcript read endpoint returns only bounded user/assistant text, never
@@ -98,12 +98,13 @@ Host entry 为 `./lib/index.mjs`，Client entry 为 `./lib/client.js`（tsdown r
 
 ## DSH Client 打包约束
 
-**不要将 `lib/client.js` 打包成 ESM。** DSH Web/Desktop 通过普通 script 加载，必须以 `window.__ModuleLoader__.load({ id: 'dsh-sidenotes', factory: (require) => { ... return module.exports } })` 注册工厂。使用 tsdown CJS + banner/intro/footer，且从浏览器共享模块表中 require React。构建脚本必须检查此格式，不能只检查文件存在。
+**不要将 `lib/client.js` 打包成 ESM。** DSH Web/Desktop 通过普通 script 加载，必须以 `window.__ModuleLoader__.load({ id: 'dsh-sidechat', factory: (require) => { ... return module.exports } })` 注册工厂。使用 tsdown CJS + banner/intro/footer，且从浏览器共享模块表中 require React。构建脚本必须检查此格式，不能只检查文件存在。
 
-## GitHub Packages 发布
 
-`.github/workflows/publish-github-packages.yml` 是仅允许主仓库 `master` 手动发起的 `workflow_dispatch` 工作流。工作流权限为 `contents: read`、`packages: write`。先构建和测试，再执行 `scripts/prepare-github-package.mjs` 生成独立的 `dist/github-package`，以 `@noname4me/dsh-sidenotes` 发布到 `npm.pkg.github.com`。发布包里同时调整 Cordis patch 和 Client module loader 的包名；本地安装包仍叫 `dsh-sidenotes`，不能同时在一个 profile 中安装二者。
+## Public npm 发布
 
-### 预发布版本的 npm dist-tag
-
-发布脚本根据 staged `package.json` 的版本自动选择 dist-tag：`-dev.*` → `dev`，`-rc.*` → `rc`，无预发布后缀 → `latest`。必须显式提供 `npm publish --tag`，否则 npm 对预发布版本报错 `You must specify a tag using --tag when publishing a prerelease version`。修改 workflow 后应在 Actions 上新发起一次 `workflow_dispatch`，不要直接重跑绑定旧 commit 的失败任务。
+- 公开包名为 **`dsh-sidechat`**，版本同步于 `dsh.plugin.json`，不使用 `@noname4me` scope。
+- 仅由 `.github/workflows/publish-npm.yml` 手动发布，发布 Registry 固定为 `https://registry.npmjs.org/`。
+- 先通过 TypeScript、测试、build、打包文件检查；预览版用 `dev` dist-tag。
+- 首次建包可用仓库 secret `NPM_TOKEN` 的 `npm-token` 模式；随后在 npmjs.com 配置 GitHub Trusted Publisher（owner `NoName4Me`，repo `dsh-sidechat`，workflow `publish-npm.yml`），后续用 OIDC。
+- 本地迁移时保留历史持久化 `state/sidenotes.json` 与已有子会话 ID，卸载旧插件后安装新包。

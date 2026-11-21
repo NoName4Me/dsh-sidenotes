@@ -1,4 +1,4 @@
-export interface SideNoteIntent {
+export interface SideChatIntent {
   readonly sessionId: string
   readonly messageId: string
   readonly selectedText?: string
@@ -7,8 +7,8 @@ export interface SideNoteIntent {
   readonly sequence: number
 }
 
-export class SideNoteIntentStore {
-  private current: SideNoteIntent | undefined
+export class SideChatIntentStore {
+  private current: SideChatIntent | undefined
   private sequence = 0
   private readonly listeners = new Set<() => void>()
 
@@ -28,7 +28,7 @@ export class SideNoteIntentStore {
     for (const fn of this.listeners) fn()
   }
 
-  getSnapshot = (): SideNoteIntent | undefined => this.current
+  getSnapshot = (): SideChatIntent | undefined => this.current
 
   subscribe = (fn: () => void): (() => void) => {
     this.listeners.add(fn)

@@ -8,7 +8,7 @@ function mockContext() {
   const injected = []
   let handle
   const agent = {
-    id: 'session-sidenotes-test',
+    id: 'session-sidechat-test',
     model: { current: () => undefined },
     followup(message) { calls.push(['followup', message]) },
     cancel(reason) { calls.push(['cancel', reason]) },
@@ -44,14 +44,14 @@ describe('OfficialDshRuntimeBridge integration contract', () => {
     const f = mockContext()
     const bridge = new OfficialDshRuntimeBridge(f.context)
     const owned = await bridge.create({
-      sessionId: 'session-sidenotes-test', initialContext: 'Explain Cordis',
+      sessionId: 'session-sidechat-test', initialContext: 'Explain Cordis',
     })
     assert.equal(f.guards.length, 1)
-    assert.match(f.guards[0]({ agent: { id: 'session-sidenotes-test' }, name: 'bash' }), /disabled/)
-    assert.match(f.guards[0]({ agent: { id: 'session-sidenotes-test' }, name: 'run_code' }), /disabled/)
+    assert.match(f.guards[0]({ agent: { id: 'session-sidechat-test' }, name: 'bash' }), /disabled/)
+    assert.match(f.guards[0]({ agent: { id: 'session-sidechat-test' }, name: 'run_code' }), /disabled/)
     assert.equal(f.guards[0]({ agent: { id: 'another-agent' }, name: 'bash' }), undefined)
     assert.equal(f.injected.length, 1)
-    assert.equal(f.injected[0].source.kind, 'dsh-sidenotes')
+    assert.equal(f.injected[0].source.kind, 'dsh-sidechat')
     owned.followup('Another question')
     assert.equal(f.calls.at(-1)[1].role, 'user')
     await owned.dispose()
@@ -61,16 +61,16 @@ describe('OfficialDshRuntimeBridge integration contract', () => {
   it('restores the same deny-all guard on resume', async () => {
     const f = mockContext()
     const bridge = new OfficialDshRuntimeBridge(f.context)
-    await bridge.resume('session-sidenotes-test')
+    await bridge.resume('session-sidechat-test')
     assert.equal(f.guards.length, 1)
-    assert.match(f.guards[0]({ agent: { id: 'session-sidenotes-test' }, name: 'write_file' }), /disabled/)
+    assert.match(f.guards[0]({ agent: { id: 'session-sidechat-test' }, name: 'write_file' }), /disabled/)
   })
 
   it('uses real typed Session IDs for archive and unarchive', async () => {
     const f = mockContext()
     const bridge = new OfficialDshRuntimeBridge(f.context)
-    await bridge.archive('session-sidenotes-test')
-    await bridge.unarchive('session-sidenotes-test')
+    await bridge.archive('session-sidechat-test')
+    await bridge.unarchive('session-sidechat-test')
     assert.deepEqual(f.calls.map(call => call[0]), ['archive', 'unarchive'])
   })
 })

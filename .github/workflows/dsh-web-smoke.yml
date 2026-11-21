@@ -35,17 +35,17 @@ jobs:
           ls -la dist
       - name: Check official DSH CLI
         run: pnpm dlx @deepseek-ai/dsh@0.2.2-rc.5 --version
-      - name: Install SideNotes into a clean DSH Web Profile
+      - name: Install SideChat into a clean DSH Web Profile
         env:
-          DSH_HOME: ${{ runner.temp }}/sidenotes-smoke-home
+          DSH_HOME: ${{ runner.temp }}/sidechat-smoke-home
           CI: "true"
         run: |
           pkg="$(find dist -name '*.tgz' -type f -print -quit)"
           test -n "$pkg"
           pnpm dlx @deepseek-ai/dsh@0.2.2-rc.5 plugin --profile web add "$(realpath "$pkg")"
-      - name: Verify authenticated SideNotes Host RPC
+      - name: Verify authenticated SideChat Host RPC
         env:
-          DSH_HOME: ${{ runner.temp }}/sidenotes-smoke-home
+          DSH_HOME: ${{ runner.temp }}/sidechat-smoke-home
           CI: "true"
         run: |
           set -euo pipefail
@@ -66,8 +66,8 @@ jobs:
           url="$(awk '/^dsh web:/ {print $3; exit}' dsh-web-smoke.log)"
           test -n "$url"
 
-          echo "--- SideNotes activation traces ---"
-          grep -F '[dsh-sidenotes]' dsh-web-smoke.log || true
+          echo "--- SideChat activation traces ---"
+          grep -F '[dsh-sidechat]' dsh-web-smoke.log || true
           if grep -Eiq 'entry did not activate|cannot get property|failed to activate|plugin .*failed' dsh-web-smoke.log; then
             sed -E 's/token=[^[:space:]]+/token=[REDACTED]/g' dsh-web-smoke.log
             echo "DSH reported a plugin activation problem"
@@ -83,7 +83,7 @@ jobs:
           if (login.status !== 303 || !cookie) {
             throw new Error('DSH login token exchange did not provide an authenticated cookie')
           }
-          const endpoint = new URL('/sidenotes/list', url)
+          const endpoint = new URL('/sidechat/list', url)
           const data = JSON.stringify({
             type: 'client-request', rpcId: 'smoke-request',
             method: 'list', payload: { parentSessionId: 'missing-parent' },
@@ -93,21 +93,21 @@ jobs:
           })
           const unauth = await post({})
           if (![401, 403, 405].includes(unauth.status)) {
-            throw new Error('unauthenticated SideNotes route was not rejected: ' + unauth.status)
+            throw new Error('unauthenticated SideChat route was not rejected: ' + unauth.status)
           }
           const auth = await post({ cookie })
           if (auth.status !== 200) {
-            throw new Error('authenticated SideNotes route returned HTTP ' + auth.status)
+            throw new Error('authenticated SideChat route returned HTTP ' + auth.status)
           }
           const body = await auth.json()
           if (body.type !== 'server-response' ||
               body.rpcId !== 'smoke-request' || !body.result ||
               body.result.ok !== false ||
               typeof body.result.error.code !== 'string' ||
-              !body.result.error.code.startsWith('sidenotes/')) {
-            throw new Error('SideNotes authenticated route did not return its expected application response')
+              !body.result.error.code.startsWith('sidechat/')) {
+            throw new Error('SideChat authenticated route did not return its expected application response')
           }
-          console.log('SideNotes authenticated Web RPC is active and reachable')
+          console.log('SideChat authenticated Web RPC is active and reachable')
           NODE
       - name: Redact the one-time entry token before retaining diagnostics
         if: always()

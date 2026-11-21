@@ -3,9 +3,9 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, it } from 'node:test'
-import { SideNoteError } from '../src/domain/errors.ts'
-import { FileSideNoteRepository } from '../src/domain/file-repository.ts'
-import { SideNoteService } from '../src/domain/service.ts'
+import { SideChatError } from '../src/domain/errors.ts'
+import { FileSideChatRepository } from '../src/domain/file-repository.ts'
+import { SideChatService } from '../src/domain/service.ts'
 
 const dirs: string[] = []
 
@@ -14,15 +14,15 @@ afterEach(async () => {
 })
 
 async function fixture() {
-  const dir = await mkdtemp(join(tmpdir(), 'dsh-sidenotes-'))
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-sidechat-'))
   dirs.push(dir)
   const path = join(dir, 'notes.json')
-  const repository = new FileSideNoteRepository(path)
-  const service = new SideNoteService(repository, { idFactory: () => 'n1' })
+  const repository = new FileSideChatRepository(path)
+  const service = new SideChatService(repository, { idFactory: () => 'n1' })
   return { path, repository, service }
 }
 
-describe('FileSideNoteRepository', () => {
+describe('FileSideChatRepository', () => {
   it('persists note relationships and status across restart', async () => {
     const { path, service } = await fixture()
     const note = await service.create({
@@ -32,7 +32,7 @@ describe('FileSideNoteRepository', () => {
     })
     await service.bindSession('main', note.id, 'child')
     await service.archive('main', note.id)
-    const restarted = new SideNoteService(new FileSideNoteRepository(path))
+    const restarted = new SideChatService(new FileSideChatRepository(path))
     const loaded = await restarted.get('main', note.id)
     assert.equal(loaded.status, 'archived')
     assert.equal(loaded.childSessionId, 'child')
@@ -55,10 +55,10 @@ describe('FileSideNoteRepository', () => {
   it('fails loudly on incompatible storage instead of silently discarding data', async () => {
     const { path } = await fixture()
     await writeFile(path, JSON.stringify({ version: 99, notes: [] }))
-    const repository = new FileSideNoteRepository(path)
+    const repository = new FileSideChatRepository(path)
     await assert.rejects(
       repository.listByParent('main'),
-      error => error instanceof SideNoteError && error.code === 'INVALID_STATE',
+      error => error instanceof SideChatError && error.code === 'INVALID_STATE',
     )
   })
 })

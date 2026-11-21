@@ -2,7 +2,7 @@
 
 **Target**: DSH 0.2.2-rc.5. Host and Client types/build are checked in CI; installation in a running Web Profile is not yet verified.
 
-| SideNotes need | Official DSH public seam |
+| SideChat need | Official DSH public seam |
 |---|---|
 | Load parent and child events, including cold sessions | `ctx.sessionQuery.observeSession(SessionId(id))` |
 | Replayable parent prefix | `buildForkSeed(events, SessionSeq(boundary))` |
@@ -16,19 +16,19 @@
 ## Critical distinctions
 
 - `ctx.sessions.fork()` produces a live in-memory Session, *not* the full
-  persisted Agent lifecycle, so SideNotes does not use it for child creation.
+  persisted Agent lifecycle, so SideChat does not use it for child creation.
 - The actual Host bridge has a **deny-all tool guard**, including nested PTC
   subcalls. Permitting read-only tools is a separate audited change.
 - Fork uses the **first finished turn containing or following the anchor**, not
   the latest entire parent history. The parent's later messages do not leak in.
-- The child Session's ID derives from the persisted SideNote ID:
-  `session-sidenotes-${note.id}`. Retry therefore finds the existing Session
+- The child Session's ID derives from the persisted SideChat ID:
+  `session-sidechat-${note.id}`. Retry therefore finds the existing Session
   before any new creation and never silently duplicates its identity.
 - Default mode is `light`. It seeds no inherited events but records a
   bounded note context using Agent injection. `fork` uses original event IDs.
 - A side Session is hidden via workspace archival when idle; before followup
   it is temporarily unarchived and rearchived when idle. Promotion unarchives
-  the exact same Session. This is separate from the SideNote metadata state.
+  the exact same Session. This is separate from the SideChat metadata state.
 - The plugin must own AgentHandle disposers and release them on plugin unload.
   `ctx.agents.get()` alone does not confer ownership.
 - The Host Coordinator authorization and anchor checks are a separate
@@ -54,16 +54,16 @@ Source contracts:
 
 ## Fork transcript projection
 
-A fork keeps the parent event prefix for model context. The SideNotes panel filters events where `seq < inheritedEventCount` so inherited messages do not reappear as if they were side-thread messages. The source prefix remains in the underlying Session event log.
+A fork keeps the parent event prefix for model context. The SideChat panel filters events where `seq < inheritedEventCount` so inherited messages do not reappear as if they were side-thread messages. The source prefix remains in the underlying Session event log.
 
 ## Startup smoke: injection requirements
 
-The first packaged Web Profile startup succeeded as a Web application but reported that SideNotes failed to activate. The error was `cannot get property \"webServer\" without inject` while mounting the Connection RPC handler. The Host now declares the `webServer` injection explicitly, and the smoke workflow treats all `entry did not activate` warnings as failures. A Web URL by itself is **not** proof of plugin activation.
+The first packaged Web Profile startup succeeded as a Web application but reported that SideChat failed to activate. The error was `cannot get property \"webServer\" without inject` while mounting the Connection RPC handler. The Host now declares the `webServer` injection explicitly, and the smoke workflow treats all `entry did not activate` warnings as failures. A Web URL by itself is **not** proof of plugin activation.
 
 ## Working RPC transport
 
-SideNotes now registers a DSH WebServer `prefix` route with `auth: required` rather than calling the Connection RPC registry from a separate Cordis service Context. The route accepts the same Connection `client-request` / `server-response` JSON envelope and checks payload size, method, registered owner Peer and Session ownership. DSH WebServer/Connection retain authoritative Host and Origin admission. The existing Client `connection.rpc.call('/sidenotes', ...)` contract is unchanged. This is an authenticated Host route, not an anonymous HTTP endpoint.
+SideChat now registers a DSH WebServer `prefix` route with `auth: required` rather than calling the Connection RPC registry from a separate Cordis service Context. The route accepts the same Connection `client-request` / `server-response` JSON envelope and checks payload size, method, registered owner Peer and Session ownership. DSH WebServer/Connection retain authoritative Host and Origin admission. The existing Client `connection.rpc.call('/sidechat', ...)` contract is unchanged. This is an authenticated Host route, not an anonymous HTTP endpoint.
 
 ## Live Web smoke result (2026-11-20)
 
-The packaged SideNotes plugin has been installed into a clean DSH 0.2.2-rc.5 Web Profile by the official CLI. The Web process starts without plugin activation warnings. A login-token exchange grants a browser Cookie, and an authenticated POST to `/sidenotes/list` returns the SideNotes application's own JSON envelope. This confirms package installation, Host activation, WebServer mounting, DSH cookie admission and Host RPC reachability. It does **not** establish that a configured LLM has completed a side-thread response in a real browser.
+The packaged SideChat plugin has been installed into a clean DSH 0.2.2-rc.5 Web Profile by the official CLI. The Web process starts without plugin activation warnings. A login-token exchange grants a browser Cookie, and an authenticated POST to `/sidechat/list` returns the SideChat application's own JSON envelope. This confirms package installation, Host activation, WebServer mounting, DSH cookie admission and Host RPC reachability. It does **not** establish that a configured LLM has completed a side-thread response in a real browser.

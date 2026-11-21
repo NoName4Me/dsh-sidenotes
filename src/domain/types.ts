@@ -1,39 +1,39 @@
 export type ContextMode = 'light' | 'fork'
-export type SideNoteStatus = 'active' | 'archived' | 'promoted'
+export type SideChatStatus = 'active' | 'archived' | 'promoted'
 
-export interface SideNoteAnchor {
+export interface SideChatAnchor {
   messageId: string
   eventSeq?: number
   selectedText?: string
 }
 
-export interface SideNote {
+export interface SideChat {
   id: string
   parentSessionId: string
   childSessionId: string | null
   clientRequestId: string
-  anchor: SideNoteAnchor
+  anchor: SideChatAnchor
   title: string
   mode: ContextMode
-  status: SideNoteStatus
+  status: SideChatStatus
   promotedSessionId?: string
   createdAt: string
   updatedAt: string
   revision: number
 }
 
-export interface CreateSideNoteInput {
+export interface CreateSideChatInput {
   parentSessionId: string
   clientRequestId: string
-  anchor: SideNoteAnchor
+  anchor: SideChatAnchor
   title?: string
   mode?: ContextMode
 }
 
-export interface SideNoteRepository {
-  insert(note: SideNote): Promise<SideNote>
-  findById(id: string): Promise<SideNote | null>
-  findByRequest(parentSessionId: string, clientRequestId: string): Promise<SideNote | null>
-  listByParent(parentSessionId: string): Promise<SideNote[]>
-  update(note: SideNote, expectedRevision: number): Promise<boolean>
+export interface SideChatRepository {
+  insert(note: SideChat): Promise<SideChat>
+  findById(id: string): Promise<SideChat | null>
+  findByRequest(parentSessionId: string, clientRequestId: string): Promise<SideChat | null>
+  listByParent(parentSessionId: string): Promise<SideChat[]>
+  update(note: SideChat, expectedRevision: number): Promise<boolean>
 }

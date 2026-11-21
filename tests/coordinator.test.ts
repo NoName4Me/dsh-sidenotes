@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { SideNoteError } from '../src/domain/errors.ts'
-import { MemorySideNoteRepository } from '../src/domain/memory-repository.ts'
-import { SideNoteService } from '../src/domain/service.ts'
-import { SideNoteCoordinator } from '../src/host/coordinator.ts'
-import type { SideNote, SideNoteAnchor } from '../src/domain/types.ts'
+import { SideChatError } from '../src/domain/errors.ts'
+import { MemorySideChatRepository } from '../src/domain/memory-repository.ts'
+import { SideChatService } from '../src/domain/service.ts'
+import { SideChatCoordinator } from '../src/host/coordinator.ts'
+import type { SideChat, SideChatAnchor } from '../src/domain/types.ts'
 
 function fixture() {
   let id = 0
@@ -12,21 +12,21 @@ function fixture() {
   let ensures = 0
   let promotions = 0
   const calls: string[] = []
-  const notes = new SideNoteService(new MemorySideNoteRepository(), {
+  const notes = new SideChatService(new MemorySideChatRepository(), {
     idFactory: () => 'note-' + ++id,
   })
-  const coordinator = new SideNoteCoordinator(
+  const coordinator = new SideChatCoordinator(
     notes,
     {
       async assertParentAccess(parentSessionId: string) {
         if (parentSessionId !== 'allowed-parent') throw new Error('access denied')
       },
-      async assertAnchorBelongsToParent(_parentSessionId: string, anchor: SideNoteAnchor) {
+      async assertAnchorBelongsToParent(_parentSessionId: string, anchor: SideChatAnchor) {
         if (anchor.messageId !== 'message-1') throw new Error('invalid anchor')
       },
     },
     {
-      async ensure(note: SideNote, policy: { readOnly: true }) {
+      async ensure(note: SideChat, policy: { readOnly: true }) {
         assert.equal(policy.readOnly, true)
         ensures++
         if (failures-- > 0) throw new Error('temporary host failure')
@@ -54,10 +54,10 @@ function fixture() {
 }
 
 async function rejectCode(p: Promise<unknown>, code: string) {
-  await assert.rejects(p, e => e instanceof SideNoteError && e.code === code)
+  await assert.rejects(p, e => e instanceof SideChatError && e.code === code)
 }
 
-describe('SideNoteCoordinator', () => {
+describe('SideChatCoordinator', () => {
   it('creates a child through the narrow port with a read-only policy request', async () => {
     const f = fixture()
     const created = await f.coordinator.create(f.input)

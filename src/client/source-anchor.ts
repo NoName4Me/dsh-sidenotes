@@ -12,8 +12,8 @@ function textOf(row: HTMLElement): string {
   return Array.from(sources).map(node => node.textContent?.trim() ?? '').filter(Boolean).join(' ')
 }
 export function locateSource(messageId: string, selectedText?: string): SourceLocation | null {
-  const action = Array.from(document.querySelectorAll<HTMLElement>('[data-sidenotes-anchor]'))
-    .find(element => element.dataset.sidenotesAnchor === messageId)
+  const action = Array.from(document.querySelectorAll<HTMLElement>('[data-sidechat-anchor]'))
+    .find(element => element.dataset.sidechatAnchor === messageId)
   if (!action) return null
   const tail = action.closest<HTMLElement>('[data-chat-turn]')
   if (!tail) return null

@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { DshHistoryReader } from '../src/host/history.ts'
 import type { ObservedSession } from '../src/host/dsh-session-adapter.ts'
-import type { SideNote } from '../src/domain/types.ts'
+import type { SideChat } from '../src/domain/types.ts'
 
-const note: SideNote = {
+const note: SideChat = {
   id: 'n1', clientRequestId: 'request', parentSessionId: 'main',
   childSessionId: 'child', title: 'Test', mode: 'fork', status: 'active',
   anchor: { messageId: 'main-msg' }, createdAt: '', updatedAt: '', revision: 1,
