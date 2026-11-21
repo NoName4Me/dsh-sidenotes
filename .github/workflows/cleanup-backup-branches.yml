@@ -1,0 +1,51 @@
+name: Cleanup obsolete Side Chat backup branches (one-shot)
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/cleanup-backup-branches.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.repository == 'NoName4Me/dsh-sidechat' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete only verified obsolete backup refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          node --input-type=module <<'NODE'
+          const branches = [
+            ['backup/pre-npm-rename-20261121', '1ad728c8588f7be7cfea948c417de22e300daa3d'],
+            ['backup/pre-squash-dev4-20261121', '1c68a966d060757aec6692bc1727bf1db01c3e03'],
+          ]
+          const base = `https://api.github.com/repos/${process.env.GH_REPOSITORY}/git/refs/heads/`
+          const headers = {
+            Accept: 'application/vnd.github+json',
+            Authorization: `Bearer ${process.env.GH_TOKEN}`,
+            'X-GitHub-Api-Version': '2022-11-28',
+          }
+          for (const [branch, expectedSha] of branches) {
+            const url = base + branch
+            const current = await fetch(url, { headers })
+            if (current.status === 404) {
+              console.log(`Already absent: ${branch}`)
+              continue
+            }
+            if (!current.ok) throw Error(`GET ${branch}: HTTP ${current.status}`)
+            const ref = await current.json()
+            if (ref.object?.sha !== expectedSha) {
+              throw Error(`Ref ${branch} was modified; refusing to delete`)
+            }
+            const deleted = await fetch(url, { method: 'DELETE', headers })
+            if (deleted.status !== 204) {
+              throw Error(`DELETE ${branch}: HTTP ${deleted.status}, ${await deleted.text()}`)
+            }
+            console.log(`Deleted ${branch}`)
+          }
+          NODE
