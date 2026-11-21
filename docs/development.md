@@ -99,3 +99,7 @@ Host entry 为 `./lib/index.mjs`，Client entry 为 `./lib/client.js`（tsdown r
 ## DSH Client 打包约束
 
 **不要将 `lib/client.js` 打包成 ESM。** DSH Web/Desktop 通过普通 script 加载，必须以 `window.__ModuleLoader__.load({ id: 'dsh-sidenotes', factory: (require) => { ... return module.exports } })` 注册工厂。使用 tsdown CJS + banner/intro/footer，且从浏览器共享模块表中 require React。构建脚本必须检查此格式，不能只检查文件存在。
+
+## GitHub Packages 发布
+
+`.github/workflows/publish-github-packages.yml` 是仅允许主仓库 `master` 手动发起的 `workflow_dispatch` 工作流。工作流权限为 `contents: read`、`packages: write`。先构建和测试，再执行 `scripts/prepare-github-package.mjs` 生成独立的 `dist/github-package`，以 `@noname4me/dsh-sidenotes` 发布到 `npm.pkg.github.com`。发布包里同时调整 Cordis patch 和 Client module loader 的包名；本地安装包仍叫 `dsh-sidenotes`，不能同时在一个 profile 中安装二者。

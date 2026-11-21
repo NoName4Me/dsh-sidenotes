@@ -30,6 +30,12 @@ jobs:
         run: |
           mkdir -p dist
           pnpm pack --pack-destination dist
+      - name: Validate GitHub Packages staging without publishing
+        run: |
+          node scripts/prepare-github-package.mjs
+          cd dist/github-package
+          npm pack --dry-run --json --ignore-scripts > /tmp/sidechat-package.json
+          node -e "const f=require('/tmp/sidechat-package.json')[0].files.map(x=>x.path);for(const p of ['lib/client.js','lib/index.mjs','cordis.patch.yml','locale/zh.json','icon.svg'])if(!f.includes(p))throw Error('missing '+p)"
       - name: Publish CI installable artifact
         uses: actions/upload-artifact@v4
         with:

@@ -26,9 +26,10 @@ writeFileSync(join(out, 'cordis.patch.yml'),
   patch.replace(/^(\s+name:) dsh-sidenotes\s*$/mu, "$1 '" + scoped + "'"))
 const clientPath = join(out, 'lib', 'client.js')
 const code = readFileSync(clientPath, 'utf8')
-assert.ok(code.includes("id: 'dsh-sidenotes'"))
-assert.ok(code.includes('window.__ModuleLoader__.load('))
-writeFileSync(clientPath, code.replace("id: 'dsh-sidenotes'", "id: '" + scoped + "'"))
+const loaderId = /(window\.__ModuleLoader__\.load\(\{\s*id:\s*)(["'])dsh-sidenotes\2/u
+assert.match(code, loaderId, 'expected DSH classic-script module registration')
+writeFileSync(clientPath, code.replace(loaderId,
+  (_match, prefix, quote) => prefix + quote + scoped + quote))
 pkg.name = scoped
 pkg.private = false
 pkg.publishConfig = { registry: 'https://npm.pkg.github.com', access: 'restricted' }

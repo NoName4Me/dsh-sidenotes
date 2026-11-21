@@ -1,6 +1,6 @@
 {
   "id": "dsh-external/dsh-sidenotes",
-  "version": "0.1.0-dev.4",
+  "version": "0.1.0-dev.5",
   "main": "./lib/index.mjs",
   "description": "Side Chat — context-aware, independent conversations anchored to the original reply.",
   "engines": {

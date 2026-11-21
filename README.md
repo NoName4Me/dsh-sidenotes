@@ -2,7 +2,7 @@
 
 A context-aware side-conversation plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
 
-> **Developer preview (0.1.0-dev.4)** for **DSH 0.2.2-rc.5**. Installation, Host/Client compilation and the authenticated Host RPC are verified in an actual DSH Web Profile. Manual browser/LLM conversation acceptance is still required before general release.
+> **Developer preview (0.1.0-dev.5)** for **DSH 0.2.2-rc.5**. Installation, Host/Client compilation and the authenticated Host RPC are verified in an actual DSH Web Profile. Manual browser/LLM conversation acceptance is still required before general release.
 
 Side Chat lets you ask anchored questions without derailing the main conversation. Side threads are separate DSH Agent Sessions: the parent context is unchanged unless you explicitly copy an answer back to the main composer.
 
@@ -10,8 +10,8 @@ Side Chat lets you ask anchored questions without derailing the main conversatio
 
 - **Ask aside** — Use the native icon action beneath a completed assistant response, or select text and choose **侧聊** beside DSH's existing **引用文本** action within the same capsule. Write the question and submit: the child Session is created and the prompt is sent together.
 - **Two context modes** — **Light** (default) sends a small, independent contextual quote. **Fork** inherits parent events through the source's completed turn.
-- **Back-to-back navigation** — A quiet search-and-dot rail sits just left of DSH's original Turn Navigator. Hover to expand a searchable card with the original quotation and latest reply.
-- **Resume and manage** — Return to any side conversation from its navigation dot or a small marker beside the original message. Jump back to the source and flash only the selected quotation (or the whole source message for a full-message anchor). Archive, restore or promote to a regular DSH Session.
+- **Back-to-back navigation** — Browse and search side conversations from the native Sidebar home. No competing floating directory.
+- **Resume and manage** — Return to a side conversation from the Sidebar directory or a small marker beside the original message. Jump back to the source and flash only the selected quotation (or the whole source message for a full-message anchor). Archive, restore or promote to a regular DSH Session.
 - **Bring back deliberately** — Copy an answer, insert a selected response into the parent composer as a quote (never automatically send), or ask the side Agent to summarize the discussion before bringing back its answer.
 - **Isolation** — Side Agent tool execution is denied by the Host by default. This is more restrictive than read-only file access and can be relaxed only after an audited permissions policy.
 
@@ -29,14 +29,14 @@ mkdir -p dist
 pnpm pack --pack-destination dist
 
 # In the installed DSH CLI environment:
-dsh plugin --profile web add ./dist/dsh-sidenotes-0.1.0-dev.4.tgz
+dsh plugin --profile web add ./dist/dsh-sidenotes-0.1.0-dev.5.tgz
 dsh --profile web
 ```
 
 For **Desktop**, use its own Plugins UI to install or update the tarball, or fully quit Desktop and use the **Desktop-bundled** `dsh` binary (not an npm-installed CLI):
 
 ```sh
-dsh plugin --profile desktop add /absolute/path/to/dsh-sidenotes-0.1.0-dev.4.tgz
+dsh plugin --profile desktop add /absolute/path/to/dsh-sidenotes-0.1.0-dev.5.tgz
 ```
 
 Restart Desktop afterward. Desktop and Web have **separate profiles**. Replace the tarball argument with its **absolute path** if you run `dsh plugin` from a different directory. The plugin's activation bundle is included in the package. In the UI, open a conversation and use the **侧聊** action below an assistant response, or select text and click the nearby **侧聊** button.
@@ -59,7 +59,7 @@ Main components:
 
 - `src/domain`: anchored note records, lifecycle and durable JSON repository.
 - `src/host`: owner-scoped RPC, native DSH Agent lifecycle, history projection, tool-deny policy and promotion.
-- `src/client`: message action, side rail, side-thread chat and explicit bring-back.
+- `src/client`: message action, source markers, side-thread chat and explicit bring-back.
 - `src/shared`: Host/Client protocol identifiers.
 
 ## Current limitations
@@ -74,7 +74,7 @@ Main components:
 
 MIT. See [LICENSE](LICENSE).
 
-## Desktop UI compatibility fix (0.1.0-dev.4)
+## Desktop UI compatibility fix (0.1.0-dev.5)
 
 The first preview incorrectly published `lib/client.js` as an ES module. DSH's Web/Desktop plugin loader requires a classic script factory registered with `window.__ModuleLoader__.load({ id: 'dsh-sidenotes', factory })`. This release emits the required loader wrapper and fails its build check if a bare ESM output reappears. The installed plugin package identity remains `dsh-sidenotes`; the product branding is **Side Chat / 旁敲侧击**.
 
@@ -88,10 +88,20 @@ The first preview incorrectly published `lib/client.js` as an ES module. DSH's W
 
 The source message must still be loaded in the current conversation to support exact jumping and message-edge markers.
 
-**Dev.4 UI revision:** removed the redundant companion rail; source highlights the actual reply body, not the footer toolbar; the composer uses a compact dark circular send/stop control; plugin-center metadata and artwork are localized in exported en/zh files. These changes compile and pass Web Host startup checks, but the exact desktop interaction needs a real desktop walkthrough.
+**Dev.5 UI revision:** removed the redundant companion rail; source highlights the actual reply body, not the footer toolbar; the composer uses a compact dark circular send/stop control; plugin-center metadata and artwork are localized in exported en/zh files. These changes compile and pass Web Host startup checks, but the exact desktop interaction needs a real desktop walkthrough.
 
 > **Why the button was missing in dev.0:** The first release was built as ESM, which DSH's classic-script loader could not parse. Dev.1 fixed the client loader factory; dev.2 also replaces the extra right-edge rail with the native DSH right Sidebar tab and adds selected-text access. Update/reinstall the new package and restart the Desktop app. A successfully enabled Host plugin alone does not prove its Client factory ran.
 
 ## Plugin Manager display
 
 The package exports `./icon` (original 36×36 SVG) and `./locale/en.json` / `./locale/zh.json`. DSH resolves the bundle's title and description according to the active UI locale; English is the fallback. The icon file has no enclosing tile so it remains legible in dark and light themes. UI labels keep the **侧边聊** action wording.
+
+## Manually publish to GitHub Packages
+
+Use **Actions → Publish to GitHub Packages → Run workflow**, selecting the `master` branch. This workflow is `workflow_dispatch` only and never runs automatically for a push. It verifies the Host/Client build and tests before publishing to **GitHub Packages' npm registry**, not npmjs.org, with the built-in `GITHUB_TOKEN` (`packages: write`).
+
+GitHub Packages only supports scoped npm packages. The workflow prepares `@noname4me/dsh-sidenotes` in a separate staging directory, updating its Cordis patch and DSH Client module ID. The local tarball `dsh-sidenotes` keeps its existing identity and data compatibility. **Do not install the unscoped and scoped packages together in the same DSH profile**, as both would register the same plugin services.
+
+To install the GitHub Packages variant you need npm access to the package. Configure the registry scope and an appropriate GitHub Packages read token (in your own npm settings), then install `@noname4me/dsh-sidenotes` through DSH. The existing CI local `.tgz` is simpler for testing. Each name + version can be published once; update `package.json` and `dsh.plugin.json` before publishing another version.
+
+The manual publishing action has been added, **but no publication has been triggered**.
