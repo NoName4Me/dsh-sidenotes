@@ -103,3 +103,7 @@ Host entry 为 `./lib/index.mjs`，Client entry 为 `./lib/client.js`（tsdown r
 ## GitHub Packages 发布
 
 `.github/workflows/publish-github-packages.yml` 是仅允许主仓库 `master` 手动发起的 `workflow_dispatch` 工作流。工作流权限为 `contents: read`、`packages: write`。先构建和测试，再执行 `scripts/prepare-github-package.mjs` 生成独立的 `dist/github-package`，以 `@noname4me/dsh-sidenotes` 发布到 `npm.pkg.github.com`。发布包里同时调整 Cordis patch 和 Client module loader 的包名；本地安装包仍叫 `dsh-sidenotes`，不能同时在一个 profile 中安装二者。
+
+### 预发布版本的 npm dist-tag
+
+发布脚本根据 staged `package.json` 的版本自动选择 dist-tag：`-dev.*` → `dev`，`-rc.*` → `rc`，无预发布后缀 → `latest`。必须显式提供 `npm publish --tag`，否则 npm 对预发布版本报错 `You must specify a tag using --tag when publishing a prerelease version`。修改 workflow 后应在 Actions 上新发起一次 `workflow_dispatch`，不要直接重跑绑定旧 commit 的失败任务。

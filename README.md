@@ -105,3 +105,7 @@ GitHub Packages only supports scoped npm packages. The workflow prepares `@nonam
 To install the GitHub Packages variant you need npm access to the package. Configure the registry scope and an appropriate GitHub Packages read token (in your own npm settings), then install `@noname4me/dsh-sidenotes` through DSH. The existing CI local `.tgz` is simpler for testing. Each name + version can be published once; update `package.json` and `dsh.plugin.json` before publishing another version.
 
 The manual publishing action has been added, **but no publication has been triggered**.
+
+### npm prerelease dist-tags
+
+The publish workflow automatically sets the npm dist-tag based on the version: `0.1.0-dev.5` publishes with `--tag dev`, `1.0.0-rc.1` with `--tag rc`, and stable versions with `--tag latest`. This is required by the npm CLI for prerelease versions; the `always-auth` warning from npm's current version is not a publish failure. After updating this workflow, start a **new** manual workflow run on `master` rather than rerunning the earlier failed run at its old commit.
