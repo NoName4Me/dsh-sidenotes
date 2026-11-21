@@ -1,64 +1,60 @@
-# Side Chat · 旁敲侧击｜产品与技术设计
+# 产品与架构设计
 
-> 状态：设计基线 v0.1 · 2026-11-20。本文描述目标产品；不能将规划功能视为已实现。
+> **旁敲侧击 / Side Chat** · 面向 DeepSeek Harness 0.2.2-rc.5 · 开发预览版
+>
+> 本文区分已实现的设计和仍需验收的交互，不把源码存在等同于 Desktop 实测通过。
 
-## 1. 问题和目标
+## 1. 产品定位
 
-DSH 的普通对话严格线性。用户遇到术语、技术细节或临时想法时，希望在原位多轮询问，又不想让解释、探索性讨论占据主会话。独立 Fork 虽有上下文，却需要切换整个会话。Side Chat 以“贴着原文展开的独立侧边对话”解决这个问题。
+用户在主对话中遇到术语、代码片段或想进一步讨论的观点时，应当能**就地展开独立的多轮侧聊**，不改变主会话的消息顺序和上下文。
 
-### 产品原则
+基本原则：
 
-- **原位、轻量**：主会话不跳转；侧聊在原生右 Sidebar 打开，左侧圆点目录辅助快速导航。
-- **独立、可恢复**：每个侧聊拥有独立的会话和持续历史，关闭 UI 不等于销毁。
-- **有出处**：侧聊记录父会话、源消息、选区、创建时的上下文边界；支持跳回源位置。
-- **单向继承、显式回流**：侧枝可以读取创建时授权的主线背景，但不能自动影响主线；回流须经用户操作。
-- **升格与回流正交**：转为左侧可见的正式 Session 不意味着将内容同步给父会话。
-- **优先扩展，不改内核**：基于官方 Cordis 插件、Session/Agent、UI Slot；不替换主对话实现。
+1. **来源明确**：从 AI 回复或选区发起，记录父 Session、源消息 ID、可选原文和上下文模式。
+2. **主线隔离**：侧聊使用自己的 DSH Agent / Session，主会话不自动接收侧聊的输入和输出。
+3. **回流由用户决定**：复制或插入主输入草稿；不会自动发送。
+4. **生命周期独立**：侧聊可归档、恢复、升格为正式会话；升格不等于回流。
+5. **扩展优先**：使用 DSH Cordis、Agent/Session、官方 UI Slot、右侧 Sidebar；不替换主聊天内核。
 
-### 非目标
+不以此版本实现通用分支图、任意层级对话、侧聊 Agent 自主修改文件或完整复刻原生多模态聊天组件。
 
-不做通用无限层级图编辑器；不默认在侧聊中运行写入性工具；不偷偷同步所有侧枝上下文；第一版不追求一比一复制原生 Chat 的所有能力。
+## 2. 交互与视觉
 
-## 2. 交互
+### 发起侧聊
 
-1. 已完成消息的操作区显示小图标「侧聊」（Tooltip）；选中文字并结束拖动后，原生「引用文本」胶囊增加「侧聊」按钮；空选区时以整条回复为锚点。
-2. 弹出右侧抽屉（窄屏改为覆盖浮层），显示来源引用、独立消息流、输入框和停止按钮；主页面保持当前滚动位置。
-3. 原生 Turn Navigator 的左侧增加侧聊圆点轨道：顶部放大镜、下面每条侧聊一个小圆点；鼠标悬停展开检索卡片，展示引用原文与回答。
-4. 每条侧聊的原消息右侧出现细小锚点，靠近源选区的垂直位置；点击锚点直接打开对应侧聊。侧聊按锚点与创建时间排序并支持检索。
-5. 回复操作以图标+DSH Tooltip 呈现：复制、引用到主对话草稿；页面标题区提供定位、摘要、归档及升格。
-6. “带回”默认填入主会话输入框，不自动发送；定位原文时整条消息或选中片段高亮闪烁 3 次；正式 Session 升格后仍保留原始锚点。
+- AI 回复下方使用双气泡图标，悬浮提示「侧聊」。
+- 选中文字并松开鼠标后，在 DSH 的「引用文本」胶囊中增加「侧聊」操作；拖动选区时不显示新按钮。
+- Light（默认）只提供必要的引用背景；Fork 继承源消息所属**已完成轮次之前**的主线事件。
+- 首个问题与侧聊创建形成一条操作路径。
 
-**交互边界**：左侧点状目录是导航，不是会话切换；右侧 Sidebar 是独立聊天操作面板。沿用官方布局与颜色 token，不遮挡 DSH 的 Turn Navigator；不修改内核 Slot 的所有权。
+### 浏览与追问
 
-## 3. 上下文和隔离
+- **唯一目录**位于 DSH **原生右 Sidebar** 的「旁敲侧击」页面中。可搜索、选择、归档和恢复；不再放置第二套悬浮圆点目录。
+- 消息正文右侧靠近来源顶部或原始选区位置显示小型侧聊标记。悬停展示两行：「引用内容 / 标题」和「首个问题」；点击直接打开对应侧聊。
+- 对话输入区为单个轻量输入框，内容自动增高到 180px；禁用原生 textarea 拖拽角标；右下角小圆形发送按钮，生成期间同位置切换停止操作。
+- 侧聊顶部引用块使用浅色、方角样式；用户消息采用低对比度深色填充；AI 回答操作栏靠左，使用图标和 Tooltip。
+- 使用 DSH 主题变量，遵循深浅模式及 `prefers-reduced-motion`。
 
-### 3.1 初始化策略
+### 回到来源
 
-- **Light（默认）**：消息选区 + 来源消息摘要 + 可选的必要背景。避免把主会话全文复制进每次术语解释。真正的可复原 Session 仍需通过 Host 创建。
-- **Fork（高级）**：从选定的稳定事件边界执行 DSH 原生 Sessions Fork，继承边界以前的历史，之后与主会话各自推进。
-- 创建时的权限、模型、工作目录取自允许的配置/快照。侧聊默认只读，写权限仅通过明确的用户授权和 Host 侧策略开放。
+- **全回复锚点**：滚动到真正的 `assistant-step` 回复正文，并对整条回复闪烁高亮；不能高亮 `turn-tail` 底部工具栏。
+- **选区锚点**：在来源文本节点上恢复 DOM Range，仅高亮匹配片段；富文本跨节点可匹配。
+- 未加载原文或文本变化导致精确匹配失败时显示错误，不随意高亮其他内容。
+- 消息可能有相同内容，未来可在锚点元数据中增补稳定选区偏移或节点路径以消除重复匹配歧义。
 
-**重要**：Light 是否能以“最小历史”创建可持续 Session、Fork 能否保持期望的会话可见性，应以目标 DSH 版本验证；在实现前不能依赖未核实的内部 API。
+## 3. 状态与数据
 
-### 3.2 向主会话回流
-
-1. 默认完全隔离：主 Session 不感知侧聊消息。
-2. 用户选择一条回答、选区或摘要，显式“带回”；默认注入主输入框草稿并带来源信息；绝不自动发送。
-3. 后续增强：用户明确提及某个侧聊时，主 Agent 通过只读检索工具取得授权的侧聊摘要或原文，默认不全量注入所有历史。
-4. 升格只改变可见会话身份，不执行隐式回流。
-
-## 4. 实体与状态
-
-每条 SideChat 关联一个原生 DSH Session；额外元数据由独立 Host 存储持久化（不能仅存浏览器 LocalStorage）。
+每条 Side Chat 记录独立的元数据，完整消息历史仍交给 DSH Session 保存：
 
 ```ts
-type SideChatStatus = 'active' | 'archived' | 'promoted'
 type ContextMode = 'light' | 'fork'
+type SideChatStatus = 'active' | 'archived' | 'promoted'
 
 interface SideChat {
   id: string
   parentSessionId: string
-  childSessionId: string | null // 创建中的侧聊可以尚未绑定
+  childSessionId: string | null
+  clientRequestId: string
   anchor: {
     messageId: string
     eventSeq?: number
@@ -67,273 +63,64 @@ interface SideChat {
   title: string
   mode: ContextMode
   status: SideChatStatus
-  promotedSessionId?: string
+  revision: number
   createdAt: string
   updatedAt: string
 }
 ```
 
-不存储模型密钥、文件内容或重复的完整历史。来源文本设置长度上限，所有 Session 访问需要验证父子归属和当前调用者权限。
+当前使用 Host 独立持久化文件 `state/sidechat.json`（以 `dshHomePath('state', 'sidechat.json')` 定位），子 Session ID 以 `session-sidechat-` 开头。此项目尚未正式发布，因此**不处理早期实验包名或存储文件的兼容**。
 
-### 4.1 状态约束
-
-- active ↔ archived：可归档并恢复；已经 promoted 的侧聊不可再次升格。
-- active/archived → promoted：应具备幂等性；保留原锚点和转换结果。
-- 只允许在 Session 稳定边界升格。若原生归档禁止执行，必须在一次 Agent 执行期间安全解除并恢复；崩溃恢复需考虑未恢复的状态。
-- 删除父 Session 时孤儿侧聊的处理需要明确策略；首版不做静默级联删除。
-- 同一锚点允许多个侧聊；锚点丢失时仍能从列表打开，只标记来源不可定位。
-
-## 5. 架构
-
-- **Client**：扩展现有 Web UI Slots，负责选区入口、右侧索引、抽屉、消息呈现、输入和用户操作。仅维护视图状态。
-- **Host**：Cordis 插件管理侧聊生命周期、持久化、会话与 Agent 关联、授权与并发；提供受保护的请求接口。
-- **DSH 原生能力**：Session 负责完整消息/事件历史，Agent 负责模型运行和流输出。
-- **存储**：版本化 SideChat 元数据与父子索引；首次采用可测试的 Repository 接口，宿主存储适配器后续接入。
-- **传输**：显式定义请求/响应协议；不得随意暴露不带访问校验的本地 HTTP 路由。
-
-### 5.1 端到端组件架构
-
-下图区分 **Client 表现层**、**授权传输**、**Host 业务层**、**DSH 原生能力** 与 **存储边界**。实线是目标调用，虚线是事件观察或用户显式回流；这是一张**设计图**，不代表对应适配器已经全部实现。
-
-```mermaid
-flowchart TB
-  subgraph WEB["DSH Web Client（用户交互）"]
-    MAIN["主对话视图<br/>不切换主 Session"]
-    ENTRY["消息下图标 / 原生引用胶囊<br/>发起侧聊"]
-    RAIL["左侧圆点侧聊目录<br/>搜索 / 跳转 / 预览"]
-    PANEL["原生右 Sidebar 标签页<br/>独立多轮 / 停止 / 恢复"]
-    DRAFT["主对话草稿<br/>需用户确认后发送"]
-    ENTRY --> PANEL
-    RAIL <--> PANEL
-  end
-
-  subgraph TRANSPORT["DSH 已认证连接 / RPC（需验证适配）"]
-    GATE["Host API 边界<br/>调用者认证、父 Session 归属校验"]
-  end
-
-  subgraph HOST["SideChat Host Cordis 插件"]
-    CMD["SideChat Coordinator<br/>创建 / 幂等 / 状态迁移 / 失败恢复"]
-    ACCESS["访问控制与只读工具约束<br/>限制工作区副作用"]
-    ADAPTER["DSH Session / Agent Adapter<br/>Light 创建或 Fork、followup、cancel"]
-    RETURN["显式回流服务<br/>引用 / 摘要 / 来源信息"]
-  end
-
-  subgraph DSH["DSH 原生运行时"]
-    SESS["Sessions<br/>事件日志、持久化与 Fork"]
-    AGENT["Agents<br/>模型推理、流式输出与生命周期"]
-    POLICY["工具注册 / 执行策略"]
-  end
-
-  subgraph STORE["数据持久化"]
-    META[("SideChat 元数据<br/>parent、anchor、child、state、revision")]
-    EVENTS[("DSH Session 事件历史<br/>不在 SideChat 中重复存储")]
-  end
-
-  ENTRY --> GATE
-  RAIL --> GATE
-  PANEL <-->|"请求 / 更新 / 追问"| GATE
-  GATE --> CMD
-  CMD <--> META
-  CMD --> ADAPTER
-  CMD --> ACCESS
-  ADAPTER <--> SESS
-  ADAPTER <--> AGENT
-  AGENT --> POLICY
-  ACCESS -. "Host 级限制" .-> POLICY
-  SESS --> EVENTS
-  AGENT -. "流 / 状态 / 完成事件" .-> GATE
-  GATE -. "推送 / 订阅" .-> PANEL
-
-  PANEL -->|"用户点击带回"| RETURN
-  RETURN -->|"仅填写草稿"| DRAFT
-  DRAFT -. "用户手动发送" .-> MAIN
-```
-
-**关键边界**
-
-- `parentSessionId` 与 `childSessionId` 是独立的原生 Session 身份，SideChat 只存关系和状态；不存在“将侧聊消息追加到主 Session”的默认路径。
-- **授权必须在 Host 执行**：即使浏览器篡改 `parentSessionId` 也不能访问别人的侧聊；校验不可仅依赖来自 Client 的参数。
-- **只读是工具执行策略**，不是靠 UI 禁用按钮或提示词；在没有确认 DSH 宿主提供的授权/工具限制钩子之前，不得启用侧聊工具写入。
-- 右缘索引仅组织侧聊元数据；回答和历史仍来自 DSH Session 日志。
-- `Light` 与 `Fork` 只是两种创建语义；具体创建接口由已验证的 DSH Adapter 实现，禁止假定单个 API 支持所有能力。
-
-### 5.2 创建侧聊和多轮追问时序
-
-```mermaid
-sequenceDiagram
-  autonumber
-  actor U as 用户
-  participant W as Web Client
-  participant G as 已认证 Host API
-  participant C as SideChat Coordinator
-  participant R as 元数据 Repository
-  participant S as DSH Session/Agent Adapter
-  participant A as DSH Agent/Session
-
-  U->>W: 选中内容 / 指定消息，点击侧聊
-  W->>G: create(parentId, anchor, mode, requestId)
-  G->>G: 验证调用者及 parentId 访问权限
-  G->>C: createSideChat(已授权参数)
-  C->>R: 依 requestId 查询，必要时写入 pending 元数据
-  alt 已存在且已绑定
-    R-->>C: 返回同一 note + childSessionId
-  else 未绑定
-    C->>S: createLight 或 fork(parent, stableBoundary)
-    S->>A: 通过官方生命周期创建子 Session/Agent
-    A-->>S: childSessionId / AgentHandle
-    S-->>C: 子会话身份
-    C->>R: bind(childSessionId, compare-and-swap)
-    alt 元数据绑定失败
-      C->>S: 执行补偿/登记待恢复，不静默遗留
-      C-->>G: 明确可重试的失败
-    end
-  end
-  C-->>G: note + childSessionId
-  G-->>W: 初始化侧聊
-  W-->>U: 展开侧边抽屉
-
-  U->>W: 发起侧聊追问
-  W->>G: followup(noteId, text)
-  G->>G: 再次验证 note 归属与只读策略
-  G->>S: followup(childSessionId, text)
-  S->>A: Agent.followup()
-  A-->>W: 通过受保护事件流更新显示
-  A->>A: 写入子 Session 历史
-  Note over A,W: 父 Session 不收到这轮输入或模型输出
-```
-
-**并发与恢复**：相同 `clientRequestId` 的重复请求应命中同一个记录；`create` 后 `bind` 前崩溃不能直接再次创建新子会话，必须恢复待决状态、查找可靠关联或执行补偿。当前领域层只实现了幂等元数据创建，**尚未**覆盖真实 DSH Session 的事务恢复。原生 Agent 的事件订阅和消息排队语义以目标 DSH 发行版为准。
-
-### 5.3 升格与回流：两条彼此独立的路径
-
-```mermaid
-flowchart LR
-  NOTE["侧枝 SideChat<br/>独立 Session"]
-  CHOICE{"用户操作"}
-  NOTE --> CHOICE
-  CHOICE -->|"收起 / 归档"| KEEP["保留历史与锚点<br/>不改主 Session"]
-  CHOICE -->|"转为正式会话"| PROMOTE["检查稳定轮次<br/>创建/公开正式 Session"]
-  PROMOTE --> LEFT["左侧会话列表<br/>保留来源关联"]
-  CHOICE -->|"带回结论"| QUOTE["选择回答或摘要<br/>标注来源"]
-  QUOTE --> DRAFT2["写入主对话输入草稿<br/>不自动发送"]
-  DRAFT2 -->|"用户确认发送"| MAIN2["主 Session 收到新消息"]
-  LEFT -. "默认不触发" .-> MAIN2
-```
-
-侧聊元数据状态机（**仅 SideChat 状态**，不等价于 DSH Session 是否处于运行/归档状态）：
+状态转移：
 
 ```mermaid
 stateDiagram-v2
-  [*] --> active: 创建元数据
-  active --> archived: 归档
-  archived --> active: 恢复
-  active --> promoted: 升格成功
-  archived --> promoted: 升格成功
-  promoted --> [*]: 终态（可追溯）
+    [*] --> active: 创建
+    active --> archived: 归档
+    archived --> active: 恢复
+    active --> promoted: 升格
+    archived --> promoted: 升格
 ```
 
-**一致性要求**：升格应仅在子 Agent 稳定边界执行，失败不写入 `promoted`；重复升格返回同一正式 Session。需要补偿或重试的中间态应在 Host 的操作日志或任务记录中持久化，不能只靠 Client 的 loading 状态。侧聊归档与 DSH 原生 Session 归档不能混为一谈。
+- 重复创建通过 `clientRequestId` 实现幂等；更新检查 `revision`。
+- 不存储模型密钥或第二份完整 Session 对话历史。
+- 同一来源可以建立多个侧聊；来源消息不可见时目录仍应可用。
+- 文件 Repository 是**单进程串行 JSON 存储**，不保证多个 DSH Host 进程并发写入安全。
 
-### 5.4 Adapter 契约与集成验证
+## 4. 体系结构
 
-实现时先定义窄接口，再针对目标 DSH 版本对接；下面是设计契约，**不是**官方 SDK 的直接签名。
-
-```ts
-interface SideSessionAdapter {
-  createLight(input: { parentSessionId: string; context: string }): Promise<{ sessionId: string }>
-  fork(input: { parentSessionId: string; eventSeq: number }): Promise<{ sessionId: string }>
-  followup(input: { sessionId: string; text: string }): Promise<void>
-  cancel(sessionId: string): Promise<void>
-  promote(input: { sessionId: string; requestId: string }): Promise<{ sessionId: string }>
-  reconcile?(input: { noteId: string; requestId: string }): Promise<void>
-}
+```mermaid
+flowchart LR
+  USER["主对话：回复图标 / 选区胶囊"] --> UI["Client：原生 Sidebar / 侧聊目录 / 聊天"]
+  UI --> RPC["受认证 Web RPC /sidechat"]
+  RPC --> HOST["Host：授权、协调器、状态机"]
+  HOST --> META[("state/sidechat.json")]
+  HOST --> AGENT["DSH Agent / Session"]
+  AGENT --> LOGS[("DSH 原生 Session 日志")]
+  HOST --> GUARD["工具执行拒绝策略"]
+  UI -. "用户主动引用" .-> DRAFT["主会话输入草稿"]
 ```
 
-| 待验证点 | 接入验收要求 |
-|---|---|
-| Agent 创建和 Fork | 目标版本能基于已完成消息的稳定边界生成子 Session；父会话不变 |
-| Agent 生命周期 | 多轮 `followup`、取消、卸载恢复符合 DSH handle 所有权约束 |
-| 可见性与升格 | 隐藏侧聊不出现在左栏；升格后可见且继续多轮 |
-| Client UI Slot | 消息菜单或锚点、右侧抽屉能注册并在卸载时清理 |
-| 浏览器调用 Host | 使用 DSH 的身份验证和 RPC，不新增裸露 HTTP API |
-| 工具限制 | 阻止文件写入/命令执行等副作用，进行真实 Host 级测试 |
+| 层 | 责任 |
+| --- | --- |
+| Client | 触发、输入、目录、历史投影、来源定位；不直接操作 Session 存储 |
+| RPC | DSH 身份认证及来源检查、owner 授权、消息体大小限制、请求参数校验 |
+| Host | SideChat 生命周期、父子 Session 归属、幂等、读写隔离与 Agent 所有权 |
+| DSH | Agent 推理、Session 事件日志、归档/恢复、Fork、原生会话可见性 |
+| Store | SideChat 元数据，不复制 DSH 消息历史 |
 
-**参考资料**：[DSH Agent 核心](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/core.md)、[DSH Session 事件日志](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/session.md)、[DSH UI Slots](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/slots.md)、[扩展 Cookbook](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/cookbook/extension-cookbook.md)。`ctx.agents`/ `ctx.sessions` 已有官方架构依据，但侧枝专用的 Host RPC、可见性和升格逻辑仍须按版本实现。
+### 安全与上下文
 
-技术规范：TypeScript strict；Host/Client 编译边界独立；类型协议可共享但运行时不要互相引用；CSS 使用局部样式；以 Cordis 生命周期管理注册/注销。依赖 DSH 官方建议的插件 bundle/patch 和 Slots，不 monkey-patch 内核。
+- Client 不能自由指定其他用户的 Session；Host 进行 owner 与父会话来源验证。
+- 侧聊 Agent **拒绝全部工具**（包含只读调用），由 Agent `setup` 中的工具守卫强制执行；不以提示词替代权限。
+- Light 使用小范围来源背景，不继承主 Session 全文；Fork 基于稳定事件边界创建原生子会话，后续独立推进。
+- 侧聊对话的展示从子 Session 日志投影；Fork 继承的父会话前缀在 UI 中过滤，不伪装成侧聊的新消息。
+- 侧聊升格时解除隐藏并继续使用原本子 Session，不把历史复制给父 Session。
 
-## 6. 安全和可靠性
+## 5. 已实现与待验证
 
-- **默认只读**：既约束用户界面，也要在 Host 工具权限边界拦截写入工具；只靠 System Prompt 不成立。
-- **接口授权**：Host 必须验证 Session 所属、请求来源及权限；不能把回环地址当身份认证。
-- **最小数据**：限制选区长度、标题长度、索引大小，防止超长输入与持久化膨胀。
-- **无隐式合并**：所有“回流”必须对应可审计的用户操作，不自动提交、发送或修改主会话。
-- **一致性**：处理双击创建、重复升格、崩溃恢复、被删除/归档父会话等边界。
-- **失败可诊断**：API 失败要有清晰状态和重试路径，不悄悄创建孤儿 Session。
+源码已包含 Host/Client、轻量与 Fork 上下文、认证 RPC、文本历史、侧聊目录、来源定位、工具拒绝、归档/恢复/升格，以及显式回填。CI 已验证编译、包构建与 Web Profile 认证 RPC。
 
-## 7. 验收场景
+**尚未完成的验收**：真实 Desktop 选区胶囊和多轮模型交互、跨重启恢复、升格后的会话可见性、各窗口尺寸与主题，以及真实模型调用下的工具守卫。Side Chat 也未实现主 Agent 主动检索其他侧聊的扩展能力。
 
-1. 同一主对话创建 3 个不同位置侧聊，展开 A、切换 B、收起，刷新后内容可恢复。
-2. 侧聊连续追问 3 轮，主会话消息顺序和上下文保持不变。
-3. 对同一条主消息创建两个侧聊，来源锚点互不覆盖。
-4. 用户带回摘要，主草稿显示来源；未确认前主 Agent 不会启动。
-5. 侧聊升格为正式会话后可在左侧访问，仍可追溯原主会话。
-6. 只读侧聊尝试执行文件修改/命令写入时，Host 策略阻止执行。
-7. 插件卸载/热重载后 UI 入口被清理，不破坏宿主 Chat。
-
-## 8. 设计参考
-
-- DSH official: https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/slots.md
-- DSH official: https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/cookbook/extension-cookbook.md
-- Side chat implementation reference: https://github.com/heartmove/dsh-side-chat
-- Native side chat reference: https://github.com/g-yixuan/dsh-sidenote
-
-参考项目用于理解接口与交互；不得直接引入未复核的内部 API，也不得复制不兼容许可证的代码。
-
-## 9. 导航位置（2026-11-20 修订）
-
-产品名称：**Side Chat · 旁敲侧击**。对话消息下方和文本选区浮出的按钮统一称为 **「侧聊」**。
-
-DSH 已有 Turn Navigator（会话轮次悬浮导航）和官方右侧 Sidebar（支持原生标签页、分栏、浮窗、布局持久化）。Side Chat **不再悬浮第二条独立右缘目录**：
-
-- 点消息下方「侧聊」，或选中一段模型回答后点附近的「侧聊」，打开官方右侧 Sidebar 的「旁敲侧击」标签页。
-- 标签页内展示侧聊目录和当前侧聊；允许回到目录、归档/升格、搜索和带回草稿，保留官方 Sidebar 的拖拽、收起与布局行为。
-- 原生会话导航及 Quote 按钮保持原样，不覆盖它们的 Slot；选区入口通过不阻断原生文本交互的轻量浮动按钮提供。
-- 插件内部 ID 和 npm 包名 `dsh-sidechat` 暂保留，避免升级时丢失原有元数据和插件身份；产品展示名称采用 Side Chat。
-
-## 10. 交互设计基线（Side Chat v0.3，2026-11-20）
-
-### 10.1 与 DSH 原生组件共存
-
-- **左侧导航**：以 DSH `TurnNavigator` 的可见边界定位，在其左侧保留 28px 侧聊圆点轨道。只有当前主会话有侧聊时显示。可键盘聚焦/单击搜索；悬停时卡片向右展开，不挤压消息流。
-- **右侧内容**：使用官方 `sidebarRightTabs.register` / `sidebar.right.pane.tab` 的 Side Chat 页面，复用官方标签栏、拖动浮窗、分栏、收起与布局记忆。避免再实现第二个右侧浮窗。
-- **原文标注**：在来源消息正文靠右、原选区高度附近显示侧聊锚点；多个锚点相同高度时依次错开。DOM 没有加载的历史锚点不渲染，目录仍可访问。
-- **图标与视觉**：基于 `@deepseek-ai/dsh-client-ui-primitives` 的 Icon/Tooltip；优先使用 `--dsw-alias-*`、`--dsw-radius-*`、`--dsw-font-*`、`--dsw-elevation-*` 变量，遵循主题色与减少动效设置。
-
-### 10.2 选区手势时机
-
-DSH 原生 `useTextInteraction` 在 `pointerup`、Shift 键盘选区结束之后，才调度已选中文字的动作。Side Chat 不再对 `selectionchange` 逐帧定位按钮。因为 DSH 0.2.2-rc.5 的 `conversation.chat.text-interaction` 为 **keyed 独占 Slot**，侧聊入口使用 React Portal 附加到其已有的 Quote 按钮容器，视觉上合为一个胶囊，不抢占 Quote 的处理器。该 DOM 容器挂载约定为版本耦合点，升级 DSH 时须重点回归。
-
-### 10.3 定位与范围
-
-- 全消息侧聊：滚动至消息区域居中，消息容器执行 3 次短暂高亮。
-- 选区侧聊：根据保存的选中文字在来源消息的文本节点中恢复 DOM Range，滚动至选区附近，只针对 Range 的各矩形执行 3 次短暂高亮。
-- 找不到原文或源消息未加载时显示状态提示，不错误高亮另一段文本。重复片段的严格消歧仍需未来加入稳定选区 offsets/节点身份。
-
-### 10.4 验收
-
-1. 桌面端选区拖动中不闪烁、不弹出侧聊；松开后在 **引用文本 | 侧聊** 同一个胶囊中出现，两个操作均能使用。
-2. 底部是图标而不是旧「侧聊」文字，Tooltip 显示「侧聊 · 旁敲侧击」。
-3. 左侧圆点轨道贴着主对话轮次导航，悬停卡片可检索并显示两行预览。
-4. 主对话右缘消息锚点能够打开正确侧聊；归档后不再显示活跃标记。
-5. 定位闪烁范围正确；深浅主题、窄屏、减少动效设置下均能正常浏览。
-
-## 11. 2026-11-21 UI 修订（dev.4）
-
-- 目录仅保留原生 Sidebar 内侧聊首页，删除额外的左侧悬浮放大镜和圆点轨道。
-- 定位整条回复时匹配 `data-chat-flow-kind="assistant-step"` 的回复内容行；禁止使用 `turn-tail` 工具条。原文选区继续利用 DOM Range 逐矩形闪烁。
-- 消息右缘侧聊锚点对齐回复起始行或选区；悬停卡片两行展示引用标题、用户首问。
-- 输入区复用原生 Composer 的视觉关系：卡片内编辑器 + 右下角略小圆形墨色发送控件。生成时同一位置可停止，没有独立停止按钮。
-- 侧聊引用块为浅色填充、方角；用户消息采用中性浅黑色填充，AI 操作图标靠左。去掉无价值的状态提示，只显示明确错误。
-- 消息操作与选区胶囊文案统一「侧边聊」；图标采用双对话气泡，和主对话分支图标作语义区分。
-- 插件中心原生展示依赖 `./icon` 和 `./locale/{en,zh}.json` 导出，英文 Side Chat、中文旁敲侧击。
+详细状态见 [路线图](roadmap.md)。

@@ -1,38 +1,41 @@
 # 旁敲侧击 · Side Chat
 
-让 DeepSeek Harness 的主对话保持完整，同时围绕一段选中文字或一条 AI 回复开展独立的侧聊。
+[简体中文](README.md) | [English](README.en.md)
 
-**产品名称**：旁敲侧击 / Side Chat  
-**按钮**：侧聊  
-**npm 包名**：`dsh-sidechat`（无 scope）  
-**GitHub**：https://github.com/NoName4Me/dsh-sidechat
+**在 DeepSeek Harness 主对话旁，针对某段内容开启独立的多轮交流，不打断主线。**
 
-> Developer preview `0.1.0-dev.6`，面向 DeepSeek Harness `0.2.2-rc.5`。正式 Desktop 多模型验收仍在进行，暂不视为稳定版。
+- **产品名称**：旁敲侧击（Side Chat）
+- **功能按钮**：侧聊
+- **npm 包名**：`dsh-sidechat`（不带 scope）
+- **目标 DSH 版本**：`0.2.2-rc.5`
+- **当前版本**：`0.1.0-dev.6`（开发预览版，尚未完成 Desktop 端到端验收）
 
-## 直接在 DSH 界面安装
+## 核心功能
 
-npmjs.org 公共包发布成功后，打开 **DSH Desktop → 插件 → 添加插件**，输入：
+- **两种入口**：AI 回复下方的「侧聊」图标；选中文字后，在 DSH 原生「引用文本」胶囊中选择「侧聊」。
+- **独立上下文**：Light 模式围绕引用内容对话；Fork 模式继承源消息所在已完成轮次之前的主对话上下文。
+- **侧边交流**：在 DSH 原生右侧 Sidebar 中提问和多轮追问，主对话不被插入或修改。
+- **原文关联**：来源回复旁显示侧聊入口；点击「定位原消息」可滚动并高亮整条回复或指定选区。
+- **管理与回流**：侧聊目录搜索、归档、恢复、升格为正式 Session；复制回答，或手动引用到主对话**草稿**（不自动发送）。
+- **权限边界**：侧聊 Agent 默认禁止执行所有工具，包括只读工具；权限控制在 Host 侧强制执行。
+
+## 安装
+
+**公开 npm 包首次发布成功后**，在 DSH Desktop 打开「插件」→「添加插件」，使用默认 npm 安装源输入：
 
 ```text
 dsh-sidechat@dev
 ```
 
-也可以指定版本 `dsh-sidechat@0.1.0-dev.6`。使用 DSH 默认的 npm 安装源，无须配置 GitHub Packages 或个人 Token。安装完成后点击「立即启用」，必要时重启 Desktop。
+也可以指定版本：`dsh-sidechat@0.1.0-dev.6`。安装启用后，按需重新启动 Desktop。
 
-**更名迁移**：请先卸载旧的 `dsh-sidenotes` 或 `@noname4me/dsh-sidenotes`，不要在一个 DSH Profile 中同时加载新旧身份。为了保留已有的侧聊记录，Host 暂继续读取历史的 `state/sidenotes.json`，并识别记录中已绑定的旧子 Session ID。先备份原 Profile 再升级。此兼容路径仅用于数据读取，不是新插件的名称。
+> 当前仓库**已配置 npmjs.org 手动发布流程**，但这不等于包已发布成功。发布状态请到 [npm 包页面](https://www.npmjs.com/package/dsh-sidechat) 核实。此包无需 GitHub Packages Token，也不使用 `@noname4me` 前缀。
 
-## 主要功能
+## 从源码开发
 
-- 点击 AI 回复下方「侧聊」图标，或在原生「引用文本」胶囊中选择「侧聊」。
-- 可在 Light / Fork 两种上下文方式中选择，侧聊由独立 DSH Agent Session 运行，不修改主对话。
-- 侧聊目录集中在 DSH 原生右侧 Sidebar；主回复上方的锚点可直接打开对应侧聊。
-- 支持多轮追问、复制回答、引用到主对话草稿、来源定位与局部高亮、归档/恢复/升格。
+环境：Node.js ≥ 24.9、pnpm 11.28.5、DSH 0.2.2-rc.5。
 
-## 开发
-
-要求 Node.js 24.9+、pnpm 11.28.5。
-
-```sh
+```bash
 git clone https://github.com/NoName4Me/dsh-sidechat.git
 cd dsh-sidechat
 corepack enable
@@ -40,30 +43,39 @@ pnpm install --frozen-lockfile
 pnpm typecheck
 pnpm build
 pnpm test
+pnpm check:manifest
 ```
 
-源码：`src/client`（UI）、`src/host`（Agent / RPC）、`src/domain`（数据与权限）、`src/shared`（通信协议）。
+代码分层：
 
-相关文档：[设计](docs/design.md) · [开发规范](docs/development.md) · [DSH 对接](docs/dsh-integration.md) · [路线图](docs/roadmap.md)。
+| 路径 | 责任 |
+| --- | --- |
+| `src/client/` | 消息与选区入口、右侧面板、历史展示、原文定位 |
+| `src/host/` | 认证 RPC、DSH Agent/Session 生命周期、权限约束 |
+| `src/domain/` | 侧聊元数据、生命周期、校验、存储 |
+| `src/shared/` | Client/Host 通道常量 |
 
-## 手动发布到 npmjs.org
+侧聊元数据使用独立的 `state/sidechat.json`；子会话 ID 以 `session-sidechat-` 开头。本项目尚未正式发布，不保留旧试验包的存储及安装身份兼容逻辑。
 
-仓库的 **Actions → Publish to npmjs.org → Run workflow** 提供两个认证选项：
+## 发布到 npmjs.org
 
-1. **npm-token**：首次发布新 npm 包时可选。先在 npmjs.com 获取有对应发布权限的 Token，并在 GitHub 仓库的 Actions secrets 中创建 `NPM_TOKEN`；在 npm 账户完成必要的 2FA / 发布许可设置。
-2. **oidc**：首次发布后，登录 npmjs.com，在 `dsh-sidechat` 的 Settings → Trusted Publishing 中绑定 GitHub Actions，填写 owner `NoName4Me`、repository `dsh-sidechat`、workflow `publish-npm.yml`，授权 `npm publish`，随后使用 OIDC，无需长期写权限 Token。
+[GitHub Actions：Publish to npmjs.org](https://github.com/NoName4Me/dsh-sidechat/actions/workflows/publish-npm.yml) 仅支持手动运行，发布目标固定为公开 npm Registry。
 
-也可以使用支持首次建包的 npm Trusted Publishing 初始化流程，再直接使用 OIDC。详细说明以 [npm Trusted Publishing 文档](https://docs.npmjs.com/trusted-publishers/) 为准。
+1. **首次发布**：在 npmjs.com 确保包名可用，并准备具有发布权限的 npm Token；将其配置为仓库 Actions Secret `NPM_TOKEN`，运行工作流时选择 `npm-token`。请遵守 npm 当前的 2FA / Token 发布限制。
+2. **后续发布**：在 npm 包设置中为 `NoName4Me/dsh-sidechat` 的 `publish-npm.yml` 配置 [Trusted Publishing](https://docs.npmjs.com/trusted-publishers/)，再运行工作流并选择 `oidc`；不需要长期发布 Token。
+3. 预发布版本自动使用 `dev` dist-tag，正式版本使用 `latest`；npm 同一个版本号不能重复发布。
 
-工作流只支持手动触发，且限制在主仓库 `master`。所有提交仍需通过构建、测试和 npm pack 检查。预览版使用 `dev` dist-tag，正式版使用 `latest`。
-
-**注意：GitHub Actions 工作流准备完成并不等于已发布到 npm。** 首次发布前还必须确认 `dsh-sidechat` 包名可用、完成 npm 认证或 OIDC 信任关系配置。不要向聊天或仓库提交 npm Token。
+以上步骤**不会自动触发发布**，需要仓库维护者主动执行。
 
 ## 当前限制
 
-- 侧聊对话目前主要支持文本历史，原生 Chat 的富媒体渲染尚未全部复用。
-- 来源跳转要求相关主对话消息已加载。
-- Side Agent 默认拒绝工具执行。
-- 尚需 Desktop 真正的模型多轮、重启与升格验收。
+- Client 主要展示文字消息，尚未实现全部原生富媒体与工具消息 UI。
+- 来源消息必须已在主对话中加载，才能定位和高亮。
+- 实际 Desktop 中的选区、模型多轮、重启恢复与升格需要进一步人工验收。
+- 当前只支持指定 DSH 版本区间，升级宿主前应重新验证。
 
-MIT License.
+## 文档
+
+[设计与架构](docs/design.md) · [开发规范](docs/development.md) · [DSH 集成](docs/dsh-integration.md) · [进度与验收](docs/roadmap.md)
+
+许可证：[MIT](LICENSE)。

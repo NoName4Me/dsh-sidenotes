@@ -50,7 +50,7 @@ jobs:
           node scripts/check-manifest.mjs
           npm pack --dry-run --json --ignore-scripts > /tmp/sidechat-pack.json
           node -e "const p=require('./package.json');if(p.name!=='dsh-sidechat'||p.private||p.publishConfig.registry!=='https://registry.npmjs.org/')throw Error('unsafe package metadata')"
-          node -e "const f=require('/tmp/sidechat-pack.json')[0].files.map(x=>x.path);for(const p of ['lib/client.js','lib/index.mjs','cordis.patch.yml','dsh.plugin.json','icon.svg','locale/en.json','locale/zh.json'])if(!f.includes(p))throw Error('missing '+p)"
+          node -e "const f=require('/tmp/sidechat-pack.json')[0].files.map(x=>x.path);for(const p of ['lib/client.js','lib/index.mjs','cordis.patch.yml','dsh.plugin.json','icon.svg','locale/en.json','locale/zh.json','README.en.md'])if(!f.includes(p))throw Error('missing '+p)"
       - name: Determine npm dist-tag
         id: npm-tag
         shell: bash

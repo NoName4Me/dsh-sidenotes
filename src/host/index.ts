@@ -44,8 +44,7 @@ export class SideChatService extends Service {
     const runtime = new OfficialDshRuntimeBridge(ctx)
     this.adapter = new DshSideSessionAdapter(runtime)
     const coordinator = createSideChatHostRuntime(
-      // Reuse the historical store so already-created side chats survive the plugin rename.
-      dshHomePath('state', 'sidenotes.json'),
+      dshHomePath('state', 'sidechat.json'),
       new DshSideChatAccess(ctx),
       this.adapter,
     )

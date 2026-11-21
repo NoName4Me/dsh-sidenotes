@@ -65,10 +65,10 @@ function messageId(event: ObservedEvent): string | undefined {
   return undefined
 }
 
-function noteSessionId(noteId: string, existingSessionId?: string | null): string {
+function noteSessionId(noteId: string): string {
   // The note ID is created by the Host. A deterministic ID makes a creation
   // that succeeded before metadata binding retryable after a process restart.
-  return existingSessionId ?? 'session-sidechat-' + noteId
+  return 'session-sidechat-' + noteId
 }
 
 function sourceContext(note: SideChat): string {
@@ -128,7 +128,7 @@ export class DshSideSessionAdapter implements SideSessionPort {
 
   async ensure(note: SideChat, policy: { readOnly: true }): Promise<{ sessionId: string }> {
     if (policy.readOnly !== true) throw new SideChatError('INVALID_STATE', 'side agent must be read-only')
-    const sessionId = noteSessionId(note.id, note.childSessionId)
+    const sessionId = noteSessionId(note.id)
     return this.once('init:' + sessionId, async () => {
       this.assertOpen()
       if (note.childSessionId && note.childSessionId !== sessionId) {
@@ -235,7 +235,7 @@ export class DshSideSessionAdapter implements SideSessionPort {
   }
 
   async promote(note: SideChat): Promise<{ sessionId: string }> {
-    const sessionId = noteSessionId(note.id, note.childSessionId)
+    const sessionId = noteSessionId(note.id)
     this.assertKnown(sessionId)
     return this.once('promote:' + sessionId, async () => {
       const handle = await this.live(sessionId)

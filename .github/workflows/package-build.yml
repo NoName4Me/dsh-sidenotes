@@ -34,7 +34,7 @@ jobs:
         run: |
           node scripts/check-manifest.mjs
           npm pack --dry-run --json --ignore-scripts > /tmp/sidechat-pack.json
-          node -e "const f=require('/tmp/sidechat-pack.json')[0].files.map(x=>x.path);for(const x of ['lib/client.js','lib/index.mjs','cordis.patch.yml','dsh.plugin.json','icon.svg','locale/en.json','locale/zh.json'])if(!f.includes(x))throw Error('missing '+x)"
+          node -e "const f=require('/tmp/sidechat-pack.json')[0].files.map(x=>x.path);for(const x of ['lib/client.js','lib/index.mjs','cordis.patch.yml','dsh.plugin.json','icon.svg','locale/en.json','locale/zh.json','README.en.md'])if(!f.includes(x))throw Error('missing '+x)"
       - name: Publish CI installable artifact
         uses: actions/upload-artifact@v4
         with:

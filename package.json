@@ -27,7 +27,8 @@
     "dsh.plugin.json",
     "LICENSE",
     "icon.svg",
-    "locale"
+    "locale",
+    "README.en.md"
   ],
   "dsh": {
     "bundle": {
